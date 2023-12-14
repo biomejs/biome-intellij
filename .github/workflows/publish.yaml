@@ -1,0 +1,16 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      nightly:
+        type: boolean
+        default: true
+        required: false
+        description: 'Publish a nightly build'        
+
+jobs:
+  
+  build:
+    name: Build
+    uses: ./.github/workflows/_build.yaml
