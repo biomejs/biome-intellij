@@ -61,7 +61,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: gradle.properties
-          key: gradle.properties
+          key: gradle.properties.${{ github.sha }}
 
       - name: Upload plugin artifact
         if: ${{ inputs.artifact }}

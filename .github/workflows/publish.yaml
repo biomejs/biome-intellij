@@ -37,7 +37,7 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: gradle.properties
-          key: gradle.properties
+          key: gradle.properties.${{ github.sha }}
 
       - name: Publish Plugin
         env:
