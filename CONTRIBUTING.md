@@ -58,7 +58,7 @@ This section is for maintainers only. It describes the process for releasing a n
    ```
 2. Generate the changelog.
    ```shell
-   git-cliff --bump
+   git-cliff --bump e71479100d4ed81b3e9c26881c38a0ddb7da31eb..
    ```
 3. Bump the version in `gradle.properties` and to match the latest version in the changelog.
 4. Commit and push your changes.
@@ -71,7 +71,7 @@ This section is for maintainers only. It describes the process for releasing a n
 1. Commit your changes to the _main_ branch.
 2. Generate the changelog.
    ```shell
-   git-cliff
+   git-cliff e71479100d4ed81b3e9c26881c38a0ddb7da31eb..
    ```
 3. Commit and push your changes.
 4. Run the [`Publish`](https://github.com/biomejs/biome-intellij/actions/workflows/publish.yaml) workflow manually from the Actions tab in GitHub (check _nightly_).
