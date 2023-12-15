@@ -13,6 +13,7 @@ Ensure that you have the following tools installed on your machine:
 
 - Java development kit (JDK) 17
 - IntelliJ IDEA Ultimate Edition
+- git-cliff (_maintainers only_)
 
 1. Fork the repository and clone it to your local machine.
    ```shell
