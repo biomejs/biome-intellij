@@ -1,0 +1,71 @@
+# Reusable Build Workflow
+name: _Build
+
+on:
+  workflow_call:
+    inputs:
+      nightly:
+        type: boolean
+        default: false
+        required: false
+        description: 'Publish a nightly build'
+      artifact:
+        type: boolean
+        required: false
+        default: false
+        description: 'Create an artifact for the compiled plugin'
+    outputs:
+      version:
+        value: ${{ jobs.build-plugin.outputs.version }}
+        description: 'Version of the built plugin'
+      nightly:
+        value: ${{ inputs.nightly }}
+        description: "Whether or not the build is a nightly build"
+
+jobs:
+  build-plugin:
+    name: Build Plugin
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Read version from gradle.properties (nightly)
+        if: ${{ inputs.nightly }}
+        id: original-version
+        run: echo "version=$(grep -P '^pluginVersion = \K(.+)$' -o gradle.properties)" >> $GITHUB_OUTPUT
+
+      - name: Generate nightly version identifier (nightly)
+        if: ${{ inputs.nightly }}
+        id: nightly-version
+        run: echo "version=${{ steps.original-version.outputs.version }}-nightly.$(echo '${{ github.sha }}' | cut -c 1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Replace version in gradle.properties (nightly)
+        if: ${{ inputs.nightly }}
+        run: sed -i -E 's/^pluginVersion = .*/pluginVersion = ${{ steps.nightly-version.outputs.version }}/' gradle.properties
+
+      - name: Read final version
+        id: version
+        run: echo "version=$(grep -P '^pluginVersion = \K(.+)$' -o gradle.properties)" >> $GITHUB_OUTPUT
+
+      - name: Build
+        run: ./gradlew buildPlugin
+
+      - name: Cache gradle.properties
+        if: ${{ inputs.artifact }}
+        uses: actions/cache@v3
+        with:
+          path: gradle.properties
+          key: gradle.properties
+
+      - name: Upload plugin artifact
+        if: ${{ inputs.artifact }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Biome-${{ steps.version.outputs.version }}.zip
+          path: build/distributions/Biome-${{ steps.version.outputs.version }}.zip

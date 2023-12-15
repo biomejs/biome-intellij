@@ -1,0 +1,90 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      nightly:
+        type: boolean
+        default: true
+        required: false
+        description: 'Publish a nightly build'        
+
+jobs:
+  build:
+    name: Build
+    uses: ./.github/workflows/_build.yaml
+    with:
+      nightly: ${{ inputs.nightly }}
+      artifact: true
+  
+  publish-jetbrains:
+    name: Publish to JetBrains Marketplace
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment: intellij-plugin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download the artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Biome-${{ needs.build.outputs.version }}.zip
+      
+      - name: Restore gradle.properties
+        uses: actions/cache/restore@v3
+        with:
+          path: gradle.properties
+          key: gradle.properties
+
+      - name: Publish Plugin
+        env:
+          PUBLISH_TOKEN: ${{ secrets.JETBRAINS_PUBLISH_TOKEN }}
+          CERTIFICATE_CHAIN: ${{ secrets.JETBRAINS_CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
+        run: ./gradlew publishPlugin -PdistributionFile="./build/distributions/Biome-${{ needs.build.outputs.version }}.zip"
+
+  publish-github-release:
+    name: Publish to GitHub Releases
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download the artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Biome-${{ needs.build.outputs.version }}.zip
+
+      - name: Generate release notes
+        id: release-notes
+        uses: orhun/git-cliff-action@v2
+        with:
+          config: cliff.toml
+          args: -vv --latest --strip header 0544a0e103df4308c92b302ac3b22a1e3c26a64d..
+        env:
+          OUTPUT: CHANGES.md
+
+      - name: Strip tag from release notes
+        run: tail -n +3 < CHANGES.md > RELEASE_NOTES.md
+
+      - name: Rename artifact
+        run: mv "Biome-${{ needs.build.outputs.version }}.zip" biome.zip
+
+      - name: Publish extension to GitHub Releases
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "v${{ needs.build.outputs.version }}"
+          body_path: RELEASE_NOTES.md
+          prerelease: ${{ needs.build.outputs.nightly == 'true' }}
+          draft: true
+          files: biome.zip
+          tag_name: ${{ needs.build.outputs.nightly == 'true' && github.ref || format('v{0}', needs.build.outputs.version) }}
