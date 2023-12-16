@@ -30,9 +30,10 @@ The plugin can be started in IDEA by running the `runIde` Gradle task. This will
 
 ### Running tests
 
-TO run the plugin's tests, run the `test` Gradle task.
+To run the plugin's tests, run the `test` Gradle task.
 
 ```shell
+./gradlew runIdeForUiTests &
 ./gradlew test
 ```
 
