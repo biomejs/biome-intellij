@@ -51,7 +51,7 @@ jobs:
       - name: Install IDEA license key
         run: |
           mkdir -p ./build/idea-sandbox/config-uiTest
-          echo "${{ secrets.JETBRAINS_LICENSE_KEY }}" > ./build/idea-sandbox/config-uiTest/idea.key
+          echo "${{ secrets.JETBRAINS_LICENSE_KEY }}" | base64 --decode > ./build/idea-sandbox/config-uiTest/idea.key
 
       - name: Run IDE
         run: ${{ matrix.runIde }}
