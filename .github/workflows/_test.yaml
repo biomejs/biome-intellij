@@ -8,7 +8,6 @@ jobs:
   test-ui:
     name: Test UI (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    environment: intellij-plugin
     strategy:
       fail-fast: false
       matrix:
