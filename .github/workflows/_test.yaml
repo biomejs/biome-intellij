@@ -48,6 +48,11 @@ jobs:
         working-directory: src/test/testData/basic-project
         run: npm i
 
+      - name: Install IDEA license key
+        run: |
+          mkdir -p ./build/idea-sandbox/config-uiTest
+          echo "${{ secrets.JETBRAINS_LICENSE_KEY }}" > ./build/idea-sandbox/config-uiTest/idea.key
+
       - name: Run IDE
         run: ${{ matrix.runIde }}
 
