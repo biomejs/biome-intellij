@@ -5,17 +5,14 @@ import com.github.biomejs.intellijbiome.utils.RemoteRobotExtension
 import com.github.biomejs.intellijbiome.utils.StepsLogger
 import com.intellij.remoterobot.RemoteRobot
 import com.intellij.remoterobot.stepsProcessing.step
-import com.intellij.remoterobot.utils.keyboard
 import com.intellij.remoterobot.utils.waitFor
 import com.intellij.remoterobot.utils.waitForIgnoringError
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.awt.Point
-import java.awt.event.KeyEvent.*
 import java.io.File
 import java.time.Duration.ofMinutes
 
@@ -34,10 +31,9 @@ class BasicProjectNpmTest {
     }
 
     @Test
-    fun openQuickFixes(remoteRobot: RemoteRobot) = with(remoteRobot) {
+    fun checkStatusBarVersion(remoteRobot: RemoteRobot) = with(remoteRobot) {
         idea {
-            step("Check biome running version") {
-
+            step("Open index.js file") {
                 waitFor(ofMinutes(5)) { isDumbMode().not() }
 
                 step("Open file") {
@@ -45,26 +41,17 @@ class BasicProjectNpmTest {
                     val editor = editor("index.js")
                     editor.click(Point(0, 0))
                 }
+            }
 
-                step("Open quickfixes dialog") {
-                    keyboard {
-                        hotKey(VK_ALT, VK_ENTER)
-                    }
-                    quickfix {
-                        val items = collectItems()
+            step("Check Biome's version in statusbar") {
+                statusBar {
+                    val biomeWidget = byContainsText("Biome")
+                    val version = biomeWidget.callJs<String>("component.getText();")
 
-
-                        assertTrue(items.contains("Use 'const' instead."))
-                        assertTrue(items.contains("Suppress rule lint/style/noVar"))
-                    }
-                }
-
-                keyboard {
-                    hotKey(VK_ESCAPE)
+                    assert(version == "Biome 1.4.1")
                 }
             }
         }
-
     }
 
     companion object {
