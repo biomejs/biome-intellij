@@ -33,7 +33,7 @@ To install the Biome IntelliJ Plugin, Head over to [official plugin page](https:
 ### From disk
 
 1. Download the plugin .zip from releases tab.
-2. Press `⌘Сmd,` to open the IDE settings and then select Plugins.
+2. Press <kbd>⌘Cmd</kbd>, to open the IDE settings and then select Plugins.
 3. On the Plugins page, click The Settings button and then click Install Plugin from Disk….
 
 ## Getting Started
