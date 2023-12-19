@@ -1,4 +1,4 @@
-# Biome - Intellij Plugin
+# Biome - IntelliJ Plugin
 
 [![IntelliJ IDEA Ultimate Version](https://img.shields.io/badge/IntelliJ%20IDEA%20Ultimate-2023.2.2-374151.svg?labelcolor=000&logo=intellij-idea&labelColor=black)](https://www.jetbrains.com/idea/)
 [![WebStorm Version](https://img.shields.io/badge/WebStorm-2023.2.2-1F3263.svg?labelcolor=000&logo=webstorm&labelColor=black)](https://www.jetbrains.com/webstorm/)
@@ -7,11 +7,11 @@
 [![RubyMine Version](https://img.shields.io/badge/RubyMine-2023.2.2-A11523.svg?labelcolor=000&logo=ruby&labelColor=black)](https://www.jetbrains.com/ruby/)
 
 [Biome](https://biomejs.dev/) is a powerful tool designed to enhance your development experience. 
-This plugin integrates seamlessly with many [JetBrains IDE's](#supportedIDEs)to provide some capabilities:
+This plugin integrates seamlessly with many [JetBrains IDE's](#supported-ides) to provide the following capabilities.
 
-- 💡  See lints while you type
-- 👨‍💻 Apply code fixes (from mouse-over, <kbd title="Option">⌥</kbd>+<kbd  title="Enter">⏎</kbd> or <kbd title="Alt">Alt</kbd>+<kbd title="Enter">Enter</kbd>)
-- 🚧 Reformat your code with <kbd>⌥⇧</kbd>+<kbd title="Cmd">⌘</kbd>+<kbd  title="L">L</kbd> or <kbd title="Ctrl">Ctrl</kbd>+<kbd title="Alt">Alt</kbd>+<kbd  title="L">L</kbd> (You can also format your [code on save](https://www.jetbrains.com/help/webstorm/reformat-and-rearrange-code.html#reformat-on-save))
+- 💡 See lints while you type
+- 👨‍💻 Apply code fixes
+- 🚧 Reformat your code
 
 However, please note the following limitations:
 
@@ -39,7 +39,7 @@ To install the Biome IntelliJ Plugin, Head over to [official plugin page](https:
 ## Getting Started
 ### Biome Resolution
 
-The Plugin tries to use Biome from your project’s local dependencies (`node_modules/.bin/biome`). We recommend adding Biome as a project dependency to ensure that NPM scripts and the extension use the same Biome version.
+The plugin tries to use Biome from your project’s local dependencies (`node_modules/.bin/biome`). We recommend adding Biome as a project dependency to ensure that NPM scripts and the extension use the same Biome version.
 
 You can also explicitly specify the `Biome` binary the extension should use by configuring the `Biome CLI Path` in `Settings`->`Language & Frameworks`->`Biome Settings`.
 
@@ -49,7 +49,7 @@ You can also explicitly specify the `Biome` binary the extension should use by
 
 This setting overrides the Biome binary used by the plugin.
 
-### <a name="supportedIDEs">Supported IDEs</a>
+### Supported IDEs
 
 This plugin is currently supported in the following IDEs:
 
