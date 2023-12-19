@@ -7,7 +7,6 @@ import com.intellij.remoterobot.fixtures.ComponentFixture
 import com.intellij.remoterobot.fixtures.ContainerFixture
 import com.intellij.remoterobot.fixtures.FixtureName
 import com.intellij.remoterobot.search.locators.byXpath
-import java.awt.Point
 
 @JvmOverloads
 fun ContainerFixture.editor(title: String, function: Editor.() -> Unit = {}): Editor {

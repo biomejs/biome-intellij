@@ -7,7 +7,7 @@ on:
         type: boolean
         default: true
         required: false
-        description: 'Publish a nightly build'        
+        description: 'Publish a nightly build'
 
 jobs:
   build:
@@ -16,10 +16,10 @@ jobs:
     with:
       nightly: ${{ inputs.nightly }}
       artifact: true
-  
+
   publish-jetbrains:
     name: Publish to JetBrains Marketplace
-    needs: [build]
+    needs: [ build ]
     runs-on: ubuntu-latest
     environment: intellij-plugin
     steps:
@@ -32,7 +32,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: Biome-${{ needs.build.outputs.version }}.zip
-      
+
       - name: Restore gradle.properties
         uses: actions/cache/restore@v3
         with:
@@ -49,7 +49,7 @@ jobs:
 
   publish-github-release:
     name: Publish to GitHub Releases
-    needs: [build]
+    needs: [ build ]
     runs-on: ubuntu-latest
     permissions:
       contents: write

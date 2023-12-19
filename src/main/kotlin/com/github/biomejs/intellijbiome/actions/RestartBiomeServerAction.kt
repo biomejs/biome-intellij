@@ -1,9 +1,9 @@
 package com.github.biomejs.intellijbiome.actions
 
+import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.components.service
-import com.github.biomejs.intellijbiome.services.BiomeServerService
 
 class RestartBiomeServerAction : AnAction() {
     override fun actionPerformed(actionEvent: AnActionEvent) {
