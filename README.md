@@ -63,3 +63,10 @@ This plugin is currently supported in the following IDEs:
 
 - [![RubyMine Version](https://img.shields.io/badge/RubyMine-2023.2.2-A11523.svg?labelcolor=000&logo=ruby&labelColor=black)](https://www.jetbrains.com/ruby/)
 
+## Usage
+
+Biome CLI comes with many commands and options, so you can use only what you need.
+
+Apply code fixes by either hovering over the relevant section and selecting the suggested fix, pressing <kbd title="Option">⌥</kbd>+<kbd  title="Enter">⏎</kbd>(Option+Enter) or <kbd title="Alt">Alt</kbd>+<kbd title="Enter">Enter</kbd>.
+
+To reformat your code, use the keyboard shortcut <kbd>⌥⇧</kbd>+<kbd title="Cmd">⌘</kbd>+<kbd  title="L">L</kbd> or <kbd title="Ctrl">Ctrl</kbd>+<kbd title="Alt">Alt</kbd>+<kbd  title="L">L</kbd>. Alternatively, you can configure your IDE to format [code automatically on save](https://www.jetbrains.com/help/webstorm/reformat-and-rearrange-code.html#reformat-on-save)  for a seamless coding experience.
