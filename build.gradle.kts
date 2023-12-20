@@ -2,7 +2,7 @@ import java.net.URI
 
 fun properties(key: String) = providers.gradleProperty(key)
 fun environment(key: String) = providers.environmentVariable(key)
-val remoteRobotVersion = "0.11.20"
+val remoteRobotVersion = "0.11.21"
 
 plugins {
   id("java") // Java support
@@ -23,15 +23,12 @@ repositories {
 dependencies {
   testImplementation("com.intellij.remoterobot:remote-robot:$remoteRobotVersion")
   testImplementation("com.intellij.remoterobot:remote-fixtures:$remoteRobotVersion")
-  testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.3")
-  testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.2")
+  testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
+  testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
   testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.9.3")
 
   // Logging Network Calls
-  testImplementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
-
-  // Video Recording
-  implementation("com.automation-remarks:video-recorder-junit5:2.0")
+  testImplementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 }
 
 // Set the JVM language level used to build the project. Use Java 11 for 2020.3+, and Java 17 for 2022.2+.
