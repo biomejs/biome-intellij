@@ -13,7 +13,6 @@ import com.intellij.openapi.options.BoundSearchableConfigurable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.ui.ValidationInfo
-import com.intellij.openapi.util.NlsSafe
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.ContextHelpLabel
 import com.intellij.ui.components.JBRadioButton
@@ -30,10 +29,14 @@ import javax.swing.JCheckBox
 import javax.swing.JRadioButton
 import javax.swing.text.JTextComponent
 
+private const val CONFIGURABLE_ID = "settings.biome"
+private const val HELP_TOPIC = "reference.settings.biome"
+
 class BiomeConfigurable(internal val project: Project) :
     BoundSearchableConfigurable(
         BiomeBundle.message("biome.settings.name"),
-        BiomeBundle.message("biome.settings.name")
+        HELP_TOPIC,
+        CONFIGURABLE_ID
     ) {
     lateinit var runFormatOnSaveCheckBox: JCheckBox
     lateinit var runSafeFixesOnSaveCheckBox: JCheckBox
@@ -200,8 +203,7 @@ class BiomeConfigurable(internal val project: Project) :
                 FileSystems.getDefault().getPathMatcher("glob:" + it.text)
                 null
             } catch (e: PatternSyntaxException) {
-                @NlsSafe val firstLine = e.localizedMessage?.lines()?.firstOrNull()
-                ValidationInfo(firstLine ?: BiomeBundle.message("biome.invalid.pattern"), it)
+                ValidationInfo(BiomeBundle.message("biome.invalid.pattern"), it)
             }
         }
 
