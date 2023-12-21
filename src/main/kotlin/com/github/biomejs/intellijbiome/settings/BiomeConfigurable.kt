@@ -59,7 +59,7 @@ class BiomeConfigurable(internal val project: Project) :
                                 displayName
                             )
                         )
-                            .bindSelected(ConfigurationModeProperty(project, settings, ConfigurationMode.DISABLED))
+                            .bindSelected(ConfigurationModeProperty(settings, ConfigurationMode.DISABLED))
                             .component
                 }
                 row {
@@ -70,7 +70,7 @@ class BiomeConfigurable(internal val project: Project) :
                                 displayName
                             )
                         )
-                            .bindSelected(ConfigurationModeProperty(project, settings, ConfigurationMode.AUTOMATIC))
+                            .bindSelected(ConfigurationModeProperty(settings, ConfigurationMode.AUTOMATIC))
                             .component
 
                     val detectAutomaticallyHelpText = JavaScriptBundle.message(
@@ -92,7 +92,7 @@ class BiomeConfigurable(internal val project: Project) :
                                 displayName
                             )
                         )
-                            .bindSelected(ConfigurationModeProperty(project, settings, ConfigurationMode.MANUAL))
+                            .bindSelected(ConfigurationModeProperty(settings, ConfigurationMode.MANUAL))
                             .component
                 }
             }
@@ -213,7 +213,6 @@ class BiomeConfigurable(internal val project: Project) :
     }
 
     private class ConfigurationModeProperty(
-        private val project: Project,
         private val settings: BiomeSettings,
         private val mode: ConfigurationMode
     ) : MutableProperty<Boolean> {
