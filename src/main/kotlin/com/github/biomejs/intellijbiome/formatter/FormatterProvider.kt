@@ -1,58 +1,42 @@
 package com.github.biomejs.intellijbiome.formatter
 
 import com.github.biomejs.intellijbiome.BiomeBundle
-import com.github.biomejs.intellijbiome.BiomeUtils
-import com.intellij.execution.configurations.GeneralCommandLine
+import com.github.biomejs.intellijbiome.BiomeStdinRunner
+import com.github.biomejs.intellijbiome.settings.BiomeSettings
+import com.intellij.execution.ExecutionException
 import com.intellij.execution.process.CapturingProcessAdapter
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.process.ProcessEvent
 import com.intellij.formatting.service.AsyncDocumentFormattingService
 import com.intellij.formatting.service.AsyncFormattingRequest
 import com.intellij.formatting.service.FormattingService.Feature
-import com.intellij.openapi.diagnostic.thisLogger
+import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.psi.PsiFile
-import com.intellij.util.SmartList
 import org.jetbrains.annotations.NotNull
 import java.nio.charset.StandardCharsets
-import java.util.EnumSet
-import com.intellij.execution.ExecutionException
-import com.intellij.execution.process.CapturingProcessHandler
-import com.intellij.openapi.progress.util.ProgressIndicatorBase
+import java.util.*
 
-class BiomeFormatterProvider : AsyncDocumentFormattingService() {
-    override fun getFeatures(): MutableSet<Feature> = EnumSet.noneOf(Feature::class.java)
-
-    override fun canFormat(file: PsiFile): Boolean =
-        file.virtualFile?.let { BiomeUtils.isSupportedFileType(it) } ?: false
-
-    override fun getNotificationGroupId(): String = "Biome"
-
-    override fun getName(): String = "Biome"
+class FormatterProvider : AsyncDocumentFormattingService() {
+    override fun getFeatures(): MutableSet<Feature> = FEATURES
+    override fun getNotificationGroupId(): String = NOTIFICATION_GROUP_ID
+    override fun getName(): String = NAME
+    override fun canFormat(file: PsiFile): Boolean {
+        // IDEs with version >= 2023.3 uses native LSP formatter
+        return ApplicationInfo.getInstance().build.baselineVersion < 233
+    }
 
     override fun createFormattingTask(request: AsyncFormattingRequest): FormattingTask? {
-        val ioFile = request.ioFile ?: return null
+        val file = request.context.virtualFile ?: return null
         val project = request.context.project
-        val configPath = BiomeUtils.getBiomeConfigPath(project)
+        val formatterRunner = BiomeStdinRunner(project)
+        val settings = BiomeSettings.getInstance(project)
 
-        val params = SmartList("format", "--stdin-file-path", ioFile.path)
-
-        if (!configPath.isNullOrEmpty()) {
-            params.add("--config-path")
-            params.add(configPath)
-        }        
-
-        val exePath = BiomeUtils.getBiomeExecutablePath(project)
-
-        if (exePath.isNullOrEmpty()) {
-            throw ExecutionException(BiomeBundle.message("biome.language.server.not.found"))
+        if (!settings.canFormat(project, file)) {
+            return null
         }
 
         try {
-            val commandLine: GeneralCommandLine = BiomeUtils.createNodeCommandLine(project, exePath).apply {
-                withInput(ioFile)
-                addParameters(params)
-                withWorkDirectory(project.basePath)
-            }
+            val commandLine = formatterRunner.createCommandLine(file, "format")
 
             val handler = OSProcessHandler(commandLine.withCharset(StandardCharsets.UTF_8))
             return object : FormattingTask {
@@ -84,5 +68,11 @@ class BiomeFormatterProvider : AsyncDocumentFormattingService() {
             request.onError(BiomeBundle.message("biome.formatting.failure"), message)
             return null
         }
+    }
+
+    companion object {
+        val NAME: String = BiomeBundle.message("biome.formatting.service.name")
+        const val NOTIFICATION_GROUP_ID = "Biome"
+        val FEATURES: EnumSet<Feature> = EnumSet.noneOf(Feature::class.java)
     }
 }
