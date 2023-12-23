@@ -5,17 +5,14 @@ import com.github.biomejs.intellijbiome.utils.RemoteRobotExtension
 import com.github.biomejs.intellijbiome.utils.StepsLogger
 import com.intellij.remoterobot.RemoteRobot
 import com.intellij.remoterobot.stepsProcessing.step
-import com.intellij.remoterobot.utils.keyboard
 import com.intellij.remoterobot.utils.waitFor
 import com.intellij.remoterobot.utils.waitForIgnoringError
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.awt.Point
-import java.awt.event.KeyEvent.*
 import java.io.File
 import java.time.Duration.ofMinutes
 
