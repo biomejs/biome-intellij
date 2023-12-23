@@ -12,6 +12,7 @@ import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.interpreter.local.NodeJsLocalInterpreter
 import com.intellij.javascript.nodejs.interpreter.wsl.WslNodeInterpreter
 import com.intellij.openapi.project.Project
+import java.io.File
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.CompletableFuture
 
@@ -43,10 +44,30 @@ fun GeneralCommandLine.runWithNodeInterpreter(project: Project, command: String)
 
     return this.apply {
         withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
-        addParameter(command)
         withWorkDirectory(project.basePath)
-
+        addParameter(command)
         NodeCommandLineConfigurator.find(interpreter)
             .configure(this, NodeCommandLineConfigurator.defaultOptions(project))
     }
 }
+
+fun GeneralCommandLine.runCommand(project: Project, executablePath: String): GeneralCommandLine {
+    return this.apply {
+        withExePath(executablePath)
+        withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
+        withWorkDirectory(project.basePath)
+    }
+}
+
+fun GeneralCommandLine.runBiomeCLI(project: Project, command: String): GeneralCommandLine {
+    val executableFile = File(command)
+
+    return if (executableFile.isFile && executableFile.isNodeScript()) {
+        this.runWithNodeInterpreter(project, command)
+    } else {
+        this.runCommand(project, command)
+    }
+}
+
+
+

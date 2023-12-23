@@ -28,7 +28,7 @@ class FormatterProvider : AsyncDocumentFormattingService() {
     override fun createFormattingTask(request: AsyncFormattingRequest): FormattingTask? {
         val file = request.context.virtualFile ?: return null
         val project = request.context.project
-        val formatterRunner = BiomeStdinRunner(project)
+        val formatterRunner = BiomeStdinRunner.getInstance(project)
         val settings = BiomeSettings.getInstance(project)
 
         if (!settings.canFormat(project, file)) {

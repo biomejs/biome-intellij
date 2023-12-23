@@ -2,7 +2,7 @@ package com.github.biomejs.intellijbiome.lsp
 
 import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.BiomePackage
-import com.github.biomejs.intellijbiome.extensions.runWithNodeInterpreter
+import com.github.biomejs.intellijbiome.extensions.runBiomeCLI
 import com.github.biomejs.intellijbiome.listeners.BIOME_CONFIG_RESOLVED_TOPIC
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.execution.ExecutionException
@@ -21,7 +21,7 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         file: VirtualFile,
         serverStarter: LspServerSupportProvider.LspServerStarter
     ) {
-        val executable = BiomePackage.binaryPath(project) ?: return
+        val executable = BiomePackage(project).binaryPath() ?: return
         serverStarter.ensureServerStarted(LspServerDescriptor(project, executable))
     }
 }
@@ -40,7 +40,7 @@ private class LspServerDescriptor(project: Project, val executable: String) :
     }
 
     override fun createCommandLine(): GeneralCommandLine {
-        val configPath = BiomePackage.configPath(project)
+        val configPath = BiomePackage(project).configPath
         val params = SmartList("lsp-proxy")
 
         if (!configPath.isNullOrEmpty()) {
@@ -52,11 +52,11 @@ private class LspServerDescriptor(project: Project, val executable: String) :
             throw ExecutionException(BiomeBundle.message("biome.language.server.not.found"))
         }
 
-        val version = BiomePackage.versionNumber(project, executable)
+        val version = BiomePackage(project).versionNumber(executable)
 
         version?.let { project.messageBus.syncPublisher(BIOME_CONFIG_RESOLVED_TOPIC).resolved(it) }
 
-        return GeneralCommandLine().runWithNodeInterpreter(project, executable).apply {
+        return GeneralCommandLine().runBiomeCLI(project, executable).apply {
             addParameters(params)
         }
     }

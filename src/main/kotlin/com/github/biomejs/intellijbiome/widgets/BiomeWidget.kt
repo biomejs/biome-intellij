@@ -44,10 +44,10 @@ class BiomeWidget(project: Project) : EditorBasedWidget(project), StatusBarWidge
             return null
         }
 
-        val binary = BiomePackage.binaryPath(project)
+        val binary = BiomePackage(project).binaryPath()
         val progressManager = ProgressManager.getInstance()
         val version = progressManager.runProcessWithProgressSynchronously<String, Exception>({
-            BiomePackage.versionNumber(project, binary)
+            BiomePackage(project).versionNumber(binary)
         }, BiomeBundle.message("biome.loading"), true, project)
 
         if (version.isNullOrEmpty()) {

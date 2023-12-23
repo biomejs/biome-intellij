@@ -13,7 +13,7 @@ class ApplyUnsafeFixesOnSaveAction : ActionsOnSaveFileDocumentManagerListener.Ac
         BiomeSettings.getInstance(project).applyUnsafeFixesOnSave
 
     override fun processDocuments(project: Project, documents: Array<Document?>) {
-        val runner = BiomeStdinRunner(project)
+        val runner = BiomeStdinRunner.getInstance(project)
 
         OnSaveHelper().formatDocuments(
             project,

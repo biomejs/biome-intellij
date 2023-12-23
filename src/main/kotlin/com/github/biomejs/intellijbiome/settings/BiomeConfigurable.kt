@@ -49,6 +49,10 @@ class BiomeConfigurable(internal val project: Project) :
         val settings: BiomeSettings = BiomeSettings.getInstance(project)
         val biomeServerService = project.service<BiomeServerService>()
 
+        // *********************
+        // Configuration mode row
+        // *********************
+
         return panel {
             buttonsGroup {
                 row {
@@ -96,6 +100,10 @@ class BiomeConfigurable(internal val project: Project) :
                             .component
                 }
             }
+
+            // *********************
+            // Manual configuration row
+            // *********************
             panel {
                 row(BiomeBundle.message("biome.path.label")) {
                     textFieldWithBrowseButton(BiomeBundle.message("biome.path.label")) { fileChosen(it) }
