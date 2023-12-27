@@ -44,7 +44,7 @@ class RemoteRobotExtension : AfterTestExecutionCallback, ParameterResolver {
         val testMethodName = testMethod.name
         val testFailed: Boolean = context.executionException?.isPresent ?: false
         if (testFailed) {
-//            saveScreenshot(testMethodName)
+            saveScreenshot(testMethodName)
             saveIdeaFrames(testMethodName)
             saveHierarchy(testMethodName)
         }

@@ -23,6 +23,7 @@ repositories {
 dependencies {
   testImplementation("com.intellij.remoterobot:remote-robot:$remoteRobotVersion")
   testImplementation("com.intellij.remoterobot:remote-fixtures:$remoteRobotVersion")
+  testImplementation("com.intellij.remoterobot:ide-launcher:$remoteRobotVersion")
   testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
   testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
   testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.9.3")
