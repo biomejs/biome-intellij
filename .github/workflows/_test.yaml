@@ -13,23 +13,18 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            runIde: |
+            runTests: |
+              mkdir -p ./build/reports
               export DISPLAY=:99.0
               Xvfb -ac :99 -screen 0 1920x1080x24 &
               sleep 10
-              mkdir -p ./build/reports
-              ./gradlew :runIdeForUiTests > ./build/reports/idea.log &
-            runTests: |
-              export DISPLAY=:99.0
-              ./gradlew :test
+              ./gradlew test
             reportName: ui-test-fails-report-linux
           - os: windows-latest
-            runIde: start gradlew.bat :runIdeForUiTests
-            runTests: ./gradlew :test
+            runTests: ./gradlew test
             reportName: ui-test-fails-report-windows
           - os: macos-latest
-            runIde: ./gradlew :runIdeForUiTests &
-            runTests: ./gradlew :test
+            runTests: ./gradlew test
             reportName: ui-test-fails-report-mac
 
     steps:
@@ -52,17 +47,6 @@ jobs:
         run: |
           mkdir -p ./build/idea-sandbox/config-uiTest
           echo "${{ secrets.JETBRAINS_LICENSE_KEY }}" | base64 --decode > ./build/idea-sandbox/config-uiTest/idea.key
-
-      - name: Run IDE
-        run: ${{ matrix.runIde }}
-
-      # Wait for IDEA to be started
-      - name: Health Check
-        uses: jtalk/url-health-check-action@v3
-        with:
-          url: http://127.0.0.1:8082
-          max-attempts: 15
-          retry-delay: 30s
 
       - name: Run
         run: ${{ matrix.runTests }}
