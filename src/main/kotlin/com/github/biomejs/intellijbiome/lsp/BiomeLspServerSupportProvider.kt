@@ -29,6 +29,7 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
 @Suppress("UnstableApiUsage")
 private class LspServerDescriptor(project: Project, val executable: String) :
     ProjectWideLspServerDescriptor(project, "Biome") {
+    private val biomePackage = BiomePackage(project)
 
     override fun isSupportedFile(file: VirtualFile): Boolean {
         val settings = BiomeSettings.getInstance(project)
@@ -40,7 +41,7 @@ private class LspServerDescriptor(project: Project, val executable: String) :
     }
 
     override fun createCommandLine(): GeneralCommandLine {
-        val configPath = BiomePackage(project).configPath
+        val configPath = biomePackage.configPath
         val params = SmartList("lsp-proxy")
 
         if (!configPath.isNullOrEmpty()) {
@@ -52,7 +53,7 @@ private class LspServerDescriptor(project: Project, val executable: String) :
             throw ExecutionException(BiomeBundle.message("biome.language.server.not.found"))
         }
 
-        val version = BiomePackage(project).versionNumber(executable)
+        val version = biomePackage.versionNumber(executable)
 
         version?.let { project.messageBus.syncPublisher(BIOME_CONFIG_RESOLVED_TOPIC).resolved(it) }
 

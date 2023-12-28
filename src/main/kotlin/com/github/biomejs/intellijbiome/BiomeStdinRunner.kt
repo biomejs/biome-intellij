@@ -15,16 +15,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 
 class BiomeStdinRunner(private val project: Project) : BiomeRunner {
-    companion object {
-
-        @Volatile
-        private var instance: BiomeStdinRunner? = null
-
-        fun getInstance(project: Project) =
-            instance ?: synchronized(this) {
-                instance ?: BiomeStdinRunner(project).also { instance = it }
-            }
-    }
+    private val biomePackage = BiomePackage(project)
 
     override fun format(request: BiomeRunner.Request): BiomeRunner.Response {
         val commandLine = createCommandLine(request.virtualFile, "format")
@@ -93,7 +84,6 @@ class BiomeStdinRunner(private val project: Project) : BiomeRunner {
     }
 
     override fun createCommandLine(file: VirtualFile, action: String, args: String?): GeneralCommandLine {
-        val biomePackage = BiomePackage(project)
         val configPath = biomePackage.configPath
         val exePath = biomePackage.binaryPath()
         val params = SmartList(action, "--stdin-file-path", file.path)

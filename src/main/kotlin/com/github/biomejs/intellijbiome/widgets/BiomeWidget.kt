@@ -18,6 +18,7 @@ import com.intellij.platform.lsp.impl.LspServerImpl
 class BiomeWidget(project: Project) : EditorBasedWidget(project), StatusBarWidget,
     StatusBarWidget.MultipleTextValuesPresentation {
     private val logger: Logger = Logger.getInstance(javaClass)
+    private val biomePackage = BiomePackage(project)
 
     init {
         project
@@ -44,10 +45,10 @@ class BiomeWidget(project: Project) : EditorBasedWidget(project), StatusBarWidge
             return null
         }
 
-        val binary = BiomePackage(project).binaryPath()
+        val binary = biomePackage.binaryPath()
         val progressManager = ProgressManager.getInstance()
         val version = progressManager.runProcessWithProgressSynchronously<String, Exception>({
-            BiomePackage(project).versionNumber(binary)
+            biomePackage.versionNumber(binary)
         }, BiomeBundle.message("biome.loading"), true, project)
 
         if (version.isNullOrEmpty()) {

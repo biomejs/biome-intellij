@@ -12,7 +12,7 @@ class FormatOnSaveAction : ActionsOnSaveFileDocumentManagerListener.ActionOnSave
     override fun isEnabledForProject(project: Project): Boolean = BiomeSettings.getInstance(project).formatOnSave
 
     override fun processDocuments(project: Project, documents: Array<Document?>) {
-        val runner = BiomeStdinRunner.getInstance(project)
+        val runner = BiomeStdinRunner(project)
 
         OnSaveHelper().formatDocuments(
             project,
