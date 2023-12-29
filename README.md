@@ -12,9 +12,6 @@ This plugin integrates seamlessly with many [JetBrains IDE's](#supported-ides) t
 - 💡 See lints while you type
 - 👨‍💻 Apply code fixes
 - 🚧 Reformat your code
-
-However, please note the following limitations:
-
 - 💾 Automatically applying code fixes on save
 
 ## Installation
