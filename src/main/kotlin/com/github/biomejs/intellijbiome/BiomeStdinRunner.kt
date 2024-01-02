@@ -1,8 +1,8 @@
 package com.github.biomejs.intellijbiome
 
 import com.github.biomejs.intellijbiome.extensions.isSuccess
+import com.github.biomejs.intellijbiome.extensions.runBiomeCLI
 import com.github.biomejs.intellijbiome.extensions.runProcessFuture
-import com.github.biomejs.intellijbiome.extensions.runWithNodeInterpreter
 import com.intellij.execution.ExecutionException
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.openapi.progress.util.ProgressIndicatorUtils
@@ -15,6 +15,8 @@ import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 
 class BiomeStdinRunner(private val project: Project) : BiomeRunner {
+    private val biomePackage = BiomePackage(project)
+
     override fun format(request: BiomeRunner.Request): BiomeRunner.Response {
         val commandLine = createCommandLine(request.virtualFile, "format")
         val file = request.virtualFile
@@ -82,8 +84,8 @@ class BiomeStdinRunner(private val project: Project) : BiomeRunner {
     }
 
     override fun createCommandLine(file: VirtualFile, action: String, args: String?): GeneralCommandLine {
-        val configPath = BiomePackage.configPath(project)
-        val exePath = BiomePackage.binaryPath(project)
+        val configPath = biomePackage.configPath
+        val exePath = biomePackage.binaryPath()
         val params = SmartList(action, "--stdin-file-path", file.path)
 
         if (!args.isNullOrEmpty()) {
@@ -99,7 +101,7 @@ class BiomeStdinRunner(private val project: Project) : BiomeRunner {
             throw ExecutionException(BiomeBundle.message("biome.language.server.not.found"))
         }
 
-        return GeneralCommandLine().runWithNodeInterpreter(project, exePath).apply {
+        return GeneralCommandLine().runBiomeCLI(project, exePath).apply {
             withInput(File(file.path))
             addParameters(params)
         }
@@ -118,5 +120,4 @@ class BiomeStdinRunner(private val project: Project) : BiomeRunner {
             )
         return future
     }
-
 }

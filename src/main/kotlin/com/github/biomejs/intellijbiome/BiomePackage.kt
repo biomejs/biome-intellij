@@ -1,52 +1,72 @@
 package com.github.biomejs.intellijbiome
 
-import com.github.biomejs.intellijbiome.extensions.runWithNodeInterpreter
+import com.github.biomejs.intellijbiome.extensions.runBiomeCLI
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
+import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.util.ExecUtil
-import com.intellij.javascript.nodejs.library.node_modules.NodeModulesDirectoryManager
+import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
+import com.intellij.javascript.nodejs.util.NodePackage
 import com.intellij.openapi.project.Project
+import java.nio.file.Paths
 
-object BiomePackage {
-    fun versionNumber(project: Project, binaryPath: String?): String? {
+class BiomePackage(private val project: Project) {
+    private val interpreter = NodeJsInterpreterManager.getInstance(project).interpreter
+    private val nodePackage: NodePackage?
+        get() {
+            return NodePackage.findDefaultPackage(project, "@biomejs/biome", interpreter)
+        }
+
+    val configPath: String?
+        get() {
+            val configPath = BiomeSettings.getInstance(project).configPath
+
+            if (configPath.isNotEmpty()) {
+                return configPath
+            }
+
+            return null
+        }
+
+    fun versionNumber(binaryPath: String?): String? {
+        val settings = BiomeSettings.getInstance(project)
+        val configurationMode = settings.configurationMode
+        return when (configurationMode) {
+            ConfigurationMode.DISABLED -> null
+            ConfigurationMode.AUTOMATIC -> nodePackage?.getVersion(project)?.toString()
+            ConfigurationMode.MANUAL -> getBinaryVersion(binaryPath)
+        }
+    }
+
+    fun binaryPath(): String? {
+        val settings = BiomeSettings.getInstance(project)
+        val configurationMode = settings.configurationMode
+        return when (configurationMode) {
+            ConfigurationMode.DISABLED -> null
+            ConfigurationMode.AUTOMATIC -> nodePackage?.getAbsolutePackagePathToRequire(project)?.let {
+                Paths.get(
+                    it,
+                    "bin/biome"
+                )
+            }?.toString()
+
+            ConfigurationMode.MANUAL -> settings.executablePath
+        }
+    }
+
+
+    private fun getBinaryVersion(binaryPath: String?): String? {
         if (binaryPath.isNullOrEmpty()) {
             return null
         }
 
         val versionRegex = Regex("\\d{1,2}\\.\\d{1,2}\\.\\d{1,3}")
-        val commandLine = GeneralCommandLine().runWithNodeInterpreter(project, binaryPath).apply {
+        val commandLine = GeneralCommandLine().runBiomeCLI(project, binaryPath).apply {
             addParameter("--version")
         }
 
         val output = ExecUtil.execAndGetOutput(commandLine)
         val matchResult = versionRegex.find(output.stdout)
         return matchResult?.value
-    }
-
-    fun binaryPath(project: Project): String? {
-        val directoryManager = NodeModulesDirectoryManager.getInstance(project)
-        val executablePath = BiomeSettings.getInstance(project).executablePath
-
-        if (executablePath.isNotEmpty()) {
-            return executablePath
-        }
-
-        val binaryFile = directoryManager.nodeModulesDirs
-            .asSequence()
-            .mapNotNull { it.findFileByRelativePath("@biomejs/biome/bin/biome") }
-            .filter { it.isValid }
-            .firstOrNull()
-
-        return binaryFile?.path
-    }
-
-    fun configPath(project: Project): String? {
-        val configPath = BiomeSettings.getInstance(project).configPath
-
-        if (configPath.isNotEmpty()) {
-            return configPath
-        }
-
-        return null
     }
 }
