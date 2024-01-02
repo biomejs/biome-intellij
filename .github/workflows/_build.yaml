@@ -47,7 +47,7 @@ jobs:
 
       - name: Replace version in gradle.properties (nightly)
         if: ${{ inputs.nightly }}
-        run: sed -i -E 's/^pluginVersion=.*/pluginVersion = ${{ steps.nightly-version.outputs.version }}/' gradle.properties
+        run: sed -i -E 's/^pluginVersion=.*/pluginVersion=${{ steps.nightly-version.outputs.version }}/' gradle.properties
 
       - name: Read final version
         id: version
