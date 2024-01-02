@@ -51,7 +51,7 @@ jobs:
 
       - name: Read final version
         id: version
-        run: echo "version=$(grep -P '^pluginVersion=\K(.+)$' -o gradle.propertie)" >> $GITHUB_OUTPUT
+        run: echo "version=$(grep -P '^pluginVersion=\K(.+)$' -o gradle.properties)" >> $GITHUB_OUTPUT
 
       - name: Build
         run: ./gradlew buildPlugin
