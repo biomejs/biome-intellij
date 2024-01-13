@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Binary resolution on windows ([#556](https://github.com/biomejs/biome-intellij/pull/556))
 - Binary resolution execution sequence ([#601](https://github.com/biomejs/biome-intellij/pull/601))
 - Remove build range ([#1093](https://github.com/biomejs/biome-intellij/pull/1093))
+- Auto-save race condition ([#26](https://github.com/biomejs/biome-intellij/pull/26))
 
 ### Documentation
 
