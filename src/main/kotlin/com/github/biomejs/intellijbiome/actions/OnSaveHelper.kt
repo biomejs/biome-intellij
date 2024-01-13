@@ -67,7 +67,10 @@ class OnSaveHelper {
             is BiomeRunner.Response.Success -> {
                 WriteCommandAction.writeCommandAction(project)
                     .withName(request.commandDescription)
-                    .run<Exception> { request.document.setText(response.code) }
+                    .run<Exception> {
+                        request.document.setText(response.code)
+                        FileDocumentManager.getInstance().saveDocument(request.document)
+                    }
             }
 
             is BiomeRunner.Response.Failure -> {

@@ -4,8 +4,10 @@ import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.BiomeStdinRunner
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.ide.actionsOnSave.impl.ActionsOnSaveFileDocumentManagerListener
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.project.Project
+import java.util.concurrent.CompletableFuture
 
 
 class FormatOnSaveAction : ActionsOnSaveFileDocumentManagerListener.ActionOnSave() {
@@ -13,11 +15,17 @@ class FormatOnSaveAction : ActionsOnSaveFileDocumentManagerListener.ActionOnSave
 
     override fun processDocuments(project: Project, documents: Array<Document?>) {
         val runner = BiomeStdinRunner(project)
+        val onSaveHelper = OnSaveHelper()
+        val future = CompletableFuture<Void>()
 
-        OnSaveHelper().formatDocuments(
+        onSaveHelper.formatDocuments(
             project,
             documents.filterNotNull().toList(),
             BiomeBundle.message("biome.apply.safe.fix.with.biome")
-        ) { request -> runner.format(request) }
+        ) { request ->
+            val response = runner.format(request)
+            future.complete(null)
+            response
+        }
     }
 }

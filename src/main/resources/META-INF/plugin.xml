@@ -34,7 +34,6 @@
                          nonDefaultProject="false"
                          key="biome.settings.name"
                          instance="com.github.biomejs.intellijbiome.settings.BiomeConfigurable"/>
-    <formattingService implementation="com.github.biomejs.intellijbiome.formatter.FormatterProvider"/>
     <actionOnSaveInfoProvider id="BiomeOnSaveInfoProvider"
                               implementation="com.github.biomejs.intellijbiome.settings.BiomeOnSaveInfoProvider"
                               order="after FormatOnSaveInfoProvider, after EsLintOnSaveInfoProvider, before BuildOnSaveInfoProvider, before FileWatcherOnSaveInfoProvider, before UploadOnSaveInfoProvider"/>
