@@ -21,16 +21,10 @@ class BiomeSettings :
             state.configPath = value
         }
 
-    var formatFilePattern: String
-        get() = state.formatFilePattern ?: BiomeSettingsState.DEFAULT_FILE_PATTERN
+    var filePattern: String
+        get() = state.filePattern ?: BiomeSettingsState.DEFAULT_FILE_PATTERN
         set(value) {
-            state.formatFilePattern = value
-        }
-
-    var lintFilePattern: String
-        get() = state.lintFilePattern ?: BiomeSettingsState.DEFAULT_FILE_PATTERN
-        set(value) {
-            state.lintFilePattern = value
+            state.filePattern = value
         }
 
     var configurationMode: ConfigurationMode
@@ -61,11 +55,8 @@ class BiomeSettings :
         return configurationMode !== ConfigurationMode.DISABLED
     }
 
-    fun canFormat(project: Project, file: VirtualFile): Boolean =
-        GlobPatternUtil.isFileMatchingGlobPattern(project, formatFilePattern, file)
-
-    fun canLint(project: Project, file: VirtualFile): Boolean =
-        GlobPatternUtil.isFileMatchingGlobPattern(project, lintFilePattern, file)
+    fun fileSupported(project: Project, file: VirtualFile): Boolean =
+        GlobPatternUtil.isFileMatchingGlobPattern(project, filePattern, file)
 
     companion object {
         @JvmStatic

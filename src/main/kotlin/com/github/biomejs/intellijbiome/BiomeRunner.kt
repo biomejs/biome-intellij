@@ -5,18 +5,23 @@ import com.intellij.openapi.editor.Document
 import com.intellij.openapi.util.NlsSafe
 import com.intellij.openapi.vfs.VirtualFile
 import org.jetbrains.annotations.Nls
+import java.util.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+
+enum class Feature {
+    Format,
+    SafeFixes,
+    UnsafeFixes
+}
 
 interface BiomeRunner {
     companion object {
         val DEFAULT_TIMEOUT = 30000.milliseconds
     }
 
-    fun format(request: Request): Response
-    fun applySafeFixes(request: Request): Response
-    fun applyUnsafeFixes(request: Request): Response
-    fun createCommandLine(file: VirtualFile, action: String, args: String? = null): GeneralCommandLine
+    fun check(request: Request, features: EnumSet<Feature>): Response
+    fun createCommandLine(file: VirtualFile, action: String, args: List<String> = listOf()): GeneralCommandLine
 
 
     data class Request(

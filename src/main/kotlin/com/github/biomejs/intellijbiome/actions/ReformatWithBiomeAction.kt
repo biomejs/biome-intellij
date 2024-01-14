@@ -1,5 +1,6 @@
 package com.github.biomejs.intellijbiome.actions
 
+import com.github.biomejs.intellijbiome.Feature
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
@@ -7,6 +8,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.DumbAware
+import java.util.*
 
 
 class ReformatWithBiomeAction : AnAction(), DumbAware {
@@ -17,7 +19,7 @@ class ReformatWithBiomeAction : AnAction(), DumbAware {
         val editor: Editor? = actionEvent.getData(CommonDataKeys.EDITOR)
 
         if (editor != null) {
-            FormatOnSaveAction().processDocuments(project, arrayOf(editor.document))
+            BiomeCheckRunner().run(project, EnumSet.of(Feature.Format), arrayOf(editor.document))
         }
     }
 
