@@ -28,13 +28,13 @@ class BiomePackage(private val project: Project) {
             return null
         }
 
-    fun versionNumber(binaryPath: String?): String? {
+    fun versionNumber(): String? {
         val settings = BiomeSettings.getInstance(project)
         val configurationMode = settings.configurationMode
         return when (configurationMode) {
             ConfigurationMode.DISABLED -> null
             ConfigurationMode.AUTOMATIC -> nodePackage?.getVersion(project)?.toString()
-            ConfigurationMode.MANUAL -> getBinaryVersion(binaryPath)
+            ConfigurationMode.MANUAL -> getBinaryVersion(binaryPath())
         }
     }
 
@@ -65,8 +65,10 @@ class BiomePackage(private val project: Project) {
             addParameter("--version")
         }
 
-        val output = ExecUtil.execAndGetOutput(commandLine)
-        val matchResult = versionRegex.find(output.stdout)
-        return matchResult?.value
+        return runCatching {
+            val output = ExecUtil.execAndGetOutput(commandLine)
+            val matchResult = versionRegex.find(output.stdout)
+            return matchResult?.value
+        }.getOrNull()
     }
 }

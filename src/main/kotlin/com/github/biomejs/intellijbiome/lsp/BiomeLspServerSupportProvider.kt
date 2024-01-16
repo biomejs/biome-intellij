@@ -37,7 +37,7 @@ private class LspServerDescriptor(project: Project, val executable: String) :
             return false
         }
 
-        return BiomeSettings.getInstance(project).canLint(project, file)
+        return BiomeSettings.getInstance(project).fileSupported(project, file)
     }
 
     override fun createCommandLine(): GeneralCommandLine {
@@ -53,7 +53,7 @@ private class LspServerDescriptor(project: Project, val executable: String) :
             throw ExecutionException(BiomeBundle.message("biome.language.server.not.found"))
         }
 
-        val version = biomePackage.versionNumber(executable)
+        val version = biomePackage.versionNumber()
 
         version?.let { project.messageBus.syncPublisher(BIOME_CONFIG_RESOLVED_TOPIC).resolved(it) }
 
@@ -71,7 +71,7 @@ private class LspServerDescriptor(project: Project, val executable: String) :
             ideCanFormatThisFileItself: Boolean,
             serverExplicitlyWantsToFormatThisFile: Boolean
         ): Boolean {
-            return BiomeSettings.getInstance(project).canFormat(project, file)
+            return BiomeSettings.getInstance(project).fileSupported(project, file)
         }
     }
 }

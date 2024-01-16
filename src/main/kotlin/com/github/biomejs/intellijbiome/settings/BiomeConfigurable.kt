@@ -42,6 +42,8 @@ class BiomeConfigurable(internal val project: Project) :
     lateinit var runSafeFixesOnSaveCheckBox: JCheckBox
     lateinit var runUnsafeFixesOnSaveCheckBox: JCheckBox
 
+    lateinit var runForFilesField: JBTextField
+
     private lateinit var disabledConfiguration: JRadioButton
     private lateinit var automaticConfiguration: JRadioButton
     private lateinit var manualConfiguration: JRadioButton
@@ -117,31 +119,15 @@ class BiomeConfigurable(internal val project: Project) :
             }
 
             // *********************
-            // Lint pattern row
-            // *********************
-            row(BiomeBundle.message("biome.run.lint.for.files.label")) {
-                textField()
-                    .comment(BiomeBundle.message("biome.files.pattern.comment"))
-                    .align(AlignX.FILL)
-                    .bind(
-                        { textField -> textField.text.trim() },
-                        JTextComponent::setText,
-                        MutableProperty({ settings.lintFilePattern }, { settings.lintFilePattern = it })
-                    )
-                    .validationOnInput(validateGlob())
-                    .component
-            }.enabledIf(!disabledConfiguration.selected)
-
-            // *********************
             // Format pattern row
             // *********************
             row(BiomeBundle.message("biome.run.format.for.files.label")) {
-                textField()
+                runForFilesField = textField()
                     .align(AlignX.FILL)
                     .bind(
                         { textField -> textField.text.trim() },
                         JTextComponent::setText,
-                        MutableProperty({ settings.formatFilePattern }, { settings.formatFilePattern = it })
+                        MutableProperty({ settings.filePattern }, { settings.filePattern = it })
                     )
                     .validationOnInput(validateGlob())
                     .component
