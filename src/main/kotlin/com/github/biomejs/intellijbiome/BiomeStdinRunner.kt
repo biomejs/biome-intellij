@@ -23,7 +23,7 @@ class BiomeStdinRunner(private val project: Project) : BiomeRunner {
         val file = request.virtualFile
         val timeout = request.timeout
         val failureMessage = BiomeBundle.message(
-            "biome.failted.to.run.biome.check.with.features",
+            "biome.failed.to.run.biome.check.with.features",
             features.joinToString(prefix = "(", postfix = ")") { it -> it.toString().lowercase() },
             file.name
         )
