@@ -23,4 +23,5 @@ All notable changes to this project will be documented in this file.
 - Manual config path specifying ([#660](https://github.com/biomejs/biome-intellij/pull/660))
 - Add onSave actions
 - Improved command line execution mode (node & binary)
+- Use biome check ([#28](https://github.com/biomejs/biome-intellij/pull/28))
 
