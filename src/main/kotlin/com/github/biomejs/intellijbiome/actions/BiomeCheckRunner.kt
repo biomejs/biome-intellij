@@ -88,7 +88,7 @@ class BiomeCheckRunner {
             }
 
             is BiomeRunner.Response.Failure -> {
-                LOG.error(response.title)
+                LOG.error("${response.title} - ${response.description}")
             }
         }
     }
