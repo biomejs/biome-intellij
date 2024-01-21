@@ -19,13 +19,14 @@ class BiomePackage(private val project: Project) {
 
     val configPath: String?
         get() {
-            val configPath = BiomeSettings.getInstance(project).configPath
+            val settings = BiomeSettings.getInstance(project)
+            val configurationMode = settings.configurationMode
 
-            if (configPath.isNotEmpty()) {
-                return configPath
+            return when (configurationMode) {
+                ConfigurationMode.DISABLED -> null
+                ConfigurationMode.AUTOMATIC -> null
+                ConfigurationMode.MANUAL -> BiomeSettings.getInstance(project).configPath
             }
-
-            return null
         }
 
     fun versionNumber(): String? {
@@ -70,5 +71,9 @@ class BiomePackage(private val project: Project) {
             val matchResult = versionRegex.find(output.stdout)
             return matchResult?.value
         }.getOrNull()
+    }
+
+    companion object {
+        const val configName = "biome.json"
     }
 }

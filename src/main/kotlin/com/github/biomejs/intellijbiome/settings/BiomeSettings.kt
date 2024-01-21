@@ -4,6 +4,7 @@ import com.intellij.lang.javascript.linter.GlobPatternUtil
 import com.intellij.openapi.components.*
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import java.io.File
 
 
 @Service(Service.Level.PROJECT)
@@ -18,6 +19,11 @@ class BiomeSettings :
     var configPath: String
         get() = state.configPath ?: ""
         set(value) {
+            val file = File(value)
+            if (file.isFile) {
+                state.configPath = file.parentFile.path
+                return
+            }
             state.configPath = value
         }
 
