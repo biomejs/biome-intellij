@@ -1,17 +1,20 @@
 package com.github.biomejs.intellijbiome.settings
 
 import com.github.biomejs.intellijbiome.BiomeBundle
+import com.github.biomejs.intellijbiome.BiomePackage
 import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.intellij.ide.actionsOnSave.ActionsOnSaveConfigurable
 import com.intellij.lang.javascript.JavaScriptBundle
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationNamesInfo
 import com.intellij.openapi.components.service
+import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.observable.properties.ObservableMutableProperty
 import com.intellij.openapi.observable.util.whenItemSelected
 import com.intellij.openapi.options.BoundSearchableConfigurable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogPanel
+import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.ContextHelpLabel
@@ -23,13 +26,13 @@ import com.intellij.ui.layout.not
 import com.intellij.ui.layout.selected
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
+import java.io.File
 import java.nio.file.FileSystems
 import java.util.regex.PatternSyntaxException
 import javax.swing.JCheckBox
 import javax.swing.JRadioButton
 import javax.swing.text.JTextComponent
 
-private const val CONFIGURABLE_ID = "settings.biome"
 private const val HELP_TOPIC = "reference.settings.biome"
 
 class BiomeConfigurable(internal val project: Project) :
@@ -83,7 +86,7 @@ class BiomeConfigurable(internal val project: Project) :
                         "settings.javascript.linters.autodetect.configure.automatically.help.text",
                         ApplicationNamesInfo.getInstance().fullProductName,
                         displayName,
-                        "biome.json"
+                        "${BiomePackage.configName}.json"
                     )
 
                     val helpLabel = ContextHelpLabel.create(detectAutomaticallyHelpText)
@@ -107,14 +110,19 @@ class BiomeConfigurable(internal val project: Project) :
             // Manual configuration row
             // *********************
             panel {
-                row(BiomeBundle.message("biome.path.label")) {
-                    textFieldWithBrowseButton(BiomeBundle.message("biome.path.label")) { fileChosen(it) }
+                row(BiomeBundle.message("biome.path.executable")) {
+                    textFieldWithBrowseButton(BiomeBundle.message("biome.path.executable")) { fileChosen(it) }
                         .bindText(settings::executablePath)
                 }.visibleIf(manualConfiguration.selected)
 
                 row(BiomeBundle.message("biome.config.path.label")) {
-                    textFieldWithBrowseButton(BiomeBundle.message("biome.config.path.label")) { fileChosen(it) }
+                    textFieldWithBrowseButton(
+                        BiomeBundle.message("biome.config.path.label"),
+                        project,
+                        FileChooserDescriptorFactory.createSingleFileOrFolderDescriptor()
+                    ) { fileChosen(it) }
                         .bindText(settings::configPath)
+                        .validationOnInput(validateConfigDir())
                 }.visibleIf(manualConfiguration.selected)
             }
 
@@ -132,7 +140,6 @@ class BiomeConfigurable(internal val project: Project) :
                     .validationOnInput(validateGlob())
                     .component
             }.enabledIf(!disabledConfiguration.selected)
-
 
             // *********************
             // Format on save row
@@ -201,6 +208,23 @@ class BiomeConfigurable(internal val project: Project) :
             }
         }
 
+    private fun validateConfigDir(): ValidationInfoBuilder.(TextFieldWithBrowseButton) -> ValidationInfo? =
+        {
+            val selected = File(it.text)
+
+            if (!selected.exists()) {
+                ValidationInfo(BiomeBundle.message("biome.configuration.file.not.found"), it)
+            } else {
+                if (!selected.name.contains(BiomePackage.configName) && BiomePackage.configValidExtensions.contains(
+                        selected.extension
+                    )
+                ) {
+                    ValidationInfo(BiomeBundle.message("biome.configuration.file.not.found"), it)
+                } else {
+                    null
+                }
+            }
+        }
 
     private fun fileChosen(file: VirtualFile): String {
         return file.path
