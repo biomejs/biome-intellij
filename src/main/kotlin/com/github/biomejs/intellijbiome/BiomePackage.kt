@@ -74,6 +74,7 @@ class BiomePackage(private val project: Project) {
     }
 
     companion object {
-        const val configName = "biome.json"
+        const val configName = "biome"
+        val configValidExtensions = listOf("json", "jsonc")
     }
 }

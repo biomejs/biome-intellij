@@ -28,12 +28,10 @@ import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import java.io.File
 import java.nio.file.FileSystems
-import java.nio.file.Paths
 import java.util.regex.PatternSyntaxException
 import javax.swing.JCheckBox
 import javax.swing.JRadioButton
 import javax.swing.text.JTextComponent
-import kotlin.io.path.exists
 
 private const val HELP_TOPIC = "reference.settings.biome"
 
@@ -88,7 +86,7 @@ class BiomeConfigurable(internal val project: Project) :
                         "settings.javascript.linters.autodetect.configure.automatically.help.text",
                         ApplicationNamesInfo.getInstance().fullProductName,
                         displayName,
-                        BiomePackage.configName
+                        "${BiomePackage.configName}.json"
                     )
 
                     val helpLabel = ContextHelpLabel.create(detectAutomaticallyHelpText)
@@ -215,21 +213,15 @@ class BiomeConfigurable(internal val project: Project) :
             val selected = File(it.text)
 
             if (!selected.exists()) {
-                ValidationInfo(BiomeBundle.message("biome.json.not.found"), it)
+                ValidationInfo(BiomeBundle.message("biome.configuration.file.not.found"), it)
             } else {
-                if (selected.isDirectory) {
-                    val configFile = Paths.get(it.text, BiomePackage.configName)
-                    if (!configFile.exists()) {
-                        ValidationInfo(BiomeBundle.message("biome.json.not.found"), it)
-                    } else {
-                        null
-                    }
+                if (!selected.name.contains(BiomePackage.configName) && BiomePackage.configValidExtensions.contains(
+                        selected.extension
+                    )
+                ) {
+                    ValidationInfo(BiomeBundle.message("biome.configuration.file.not.found"), it)
                 } else {
-                    if (!selected.name.contains(BiomePackage.configName)) {
-                        ValidationInfo(BiomeBundle.message("biome.json.not.found"), it)
-                    } else {
-                        null
-                    }
+                    null
                 }
             }
         }

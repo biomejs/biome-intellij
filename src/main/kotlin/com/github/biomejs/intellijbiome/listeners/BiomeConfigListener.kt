@@ -11,9 +11,9 @@ class BiomeConfigListener(val project: Project) : BulkFileListener {
     override fun after(events: MutableList<out VFileEvent>) {
         super.after(events)
         events.forEach {
-            if (it.file?.name?.contains(BiomePackage.configName) == true) {
+            if (it.file?.name?.contains(BiomePackage.configName) == true && BiomePackage.configValidExtensions.contains(
+                    it.file?.extension)) {
                 val biomeServerService = project.service<BiomeServerService>()
-
                 biomeServerService.restartBiomeServer()
             }
         }
