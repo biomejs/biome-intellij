@@ -24,4 +24,5 @@ All notable changes to this project will be documented in this file.
 - Add onSave actions
 - Improved command line execution mode (node & binary)
 - Use biome check ([#28](https://github.com/biomejs/biome-intellij/pull/28))
+- Validate biome.json path config ([#32](https://github.com/biomejs/biome-intellij/pull/32))
 
