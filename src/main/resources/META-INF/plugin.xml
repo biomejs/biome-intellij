@@ -46,7 +46,7 @@
               topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
   </projectListeners>
   <actions>
-    <action id="ReformatWithBiomeAction" class="com.github.biomejs.intellijbiome.actions.ReformatWithBiomeAction">
+    <action id="ReformatWithBiomeAction" text="Reformat with Biome" class="com.github.biomejs.intellijbiome.actions.ReformatWithBiomeAction">
       <add-to-group group-id="EditorPopupMenu" anchor="last"/>
       <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
       <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift P"/>
