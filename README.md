@@ -16,7 +16,7 @@ This plugin integrates seamlessly with many [JetBrains IDE's](#supported-ides) t
 
 ## Installation
 
-To install the Biome IntelliJ Plugin, Head over to [official plugin page](https://plugins.jetbrains.com/plugin/22761-biome) or follow these steps:
+To install the Biome IntelliJ plugin, head over to the [official plugin page](https://plugins.jetbrains.com/plugin/22761-biome) or follow these steps:
 
 ### From JetBrains IDEs
 
@@ -29,16 +29,16 @@ To install the Biome IntelliJ Plugin, Head over to [official plugin page](https:
 
 ### From disk
 
-1. Download the plugin .zip from releases tab.
-2. Press <kbd>⌘Cmd + ,</kbd> to open the IDE settings and then select Plugins.
-3. On the Plugins page, click The Settings button and then click Install Plugin from Disk….
+1. Download the plugin .zip from the *releases* tab.
+2. Press <kbd>⌘Cmd + ,</kbd> to open the IDE settings and then select *Plugins*.
+3. On the Plugins page, click the *Settings* button and then click *Install Plugin from Disk…*.
 
 ## Getting Started
 ### Biome Resolution
 
 The plugin tries to use Biome from your project’s local dependencies (`node_modules/.bin/biome`). We recommend adding Biome as a project dependency to ensure that NPM scripts and the extension use the same Biome version.
 
-You can also explicitly specify the `Biome` binary the extension should use by configuring the `Biome CLI Path` in `Settings`->`Language & Frameworks`->`Biome Settings`.
+You can also explicitly specify the `biome` binary the extension should use by configuring the `Biome CLI Path` in `Settings`->`Language & Frameworks`->`Biome Settings`.
 
 ### Plugin settings
 
