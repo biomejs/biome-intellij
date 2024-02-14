@@ -1,28 +1,24 @@
 package com.github.biomejs.intellijbiome.widgets
 
 import com.github.biomejs.intellijbiome.BiomeBundle
-import com.github.biomejs.intellijbiome.BiomeUtils
+import com.github.biomejs.intellijbiome.BiomePackage
 import com.github.biomejs.intellijbiome.listeners.BIOME_CONFIG_RESOLVED_TOPIC
 import com.github.biomejs.intellijbiome.listeners.BiomeConfigResolvedListener
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ModalityState
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.wm.CustomStatusBarWidget
-import com.intellij.openapi.wm.StatusBarWidget.WidgetPresentation
-import com.intellij.openapi.wm.WindowManager
-import com.intellij.openapi.wm.impl.status.EditorBasedWidget
-import com.intellij.openapi.wm.impl.status.TextPanel.WithIconAndArrows
-import com.intellij.platform.lsp.api.LspServerManager
-import com.intellij.platform.lsp.impl.LspServerImpl
-import javax.swing.JComponent
+import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.StatusBarWidget
+import com.intellij.openapi.wm.StatusBarWidget.WidgetPresentation
+import com.intellij.openapi.wm.impl.status.EditorBasedWidget
+import com.intellij.platform.lsp.api.LspServerManager
+import com.intellij.platform.lsp.impl.LspServerImpl
 
 class BiomeWidget(project: Project) : EditorBasedWidget(project), StatusBarWidget,
     StatusBarWidget.MultipleTextValuesPresentation {
     private val logger: Logger = Logger.getInstance(javaClass)
+    private val biomePackage = BiomePackage(project)
 
     init {
         project
@@ -36,7 +32,7 @@ class BiomeWidget(project: Project) : EditorBasedWidget(project), StatusBarWidge
     }
 
     override fun ID(): String {
-        return javaClass.name;
+        return javaClass.name
     }
 
     override fun getPresentation(): WidgetPresentation {
@@ -44,19 +40,21 @@ class BiomeWidget(project: Project) : EditorBasedWidget(project), StatusBarWidge
     }
 
     override fun getSelectedValue(): String? {
-        val biomeBin = BiomeUtils.getBiomeExecutablePath(project);
-        val progressManager = ProgressManager.getInstance()
-
-        if (biomeBin == null) {
-            return "Biome"
+        val settings = BiomeSettings.getInstance(project)
+        if (!settings.isEnabled()) {
+            return null
         }
 
+        val progressManager = ProgressManager.getInstance()
         val version = progressManager.runProcessWithProgressSynchronously<String, Exception>({
-            BiomeUtils.getBiomeVersion(project, biomeBin)
+            biomePackage.versionNumber()
         }, BiomeBundle.message("biome.loading"), true, project)
 
+        if (version.isNullOrEmpty()) {
+            return null
+        }
 
-        return "Biome ${version}"
+        return BiomeBundle.message("biome.widget.version", version)
     }
 
     override fun getTooltipText(): String {

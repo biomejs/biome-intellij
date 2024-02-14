@@ -1,9 +1,9 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>com.github.biomejs.intellijbiome</id>
-    <name>Biome</name>
-    <vendor>biomejs</vendor>
-    <description><![CDATA[
+  <id>com.github.biomejs.intellijbiome</id>
+  <name>Biome</name>
+  <vendor>biomejs</vendor>
+  <description><![CDATA[
     <a href="https://biomejs.dev">Biome</a> plugin for JetBrains IDEs.
 
     <h3>Features</h3>
@@ -16,43 +16,55 @@
     ]]></description>
 
 
-    <depends>com.intellij.modules.platform</depends>
-    <depends>com.intellij.modules.ultimate</depends>
-    <depends>JavaScript</depends>
+  <depends>com.intellij.modules.platform</depends>
+  <depends>com.intellij.modules.ultimate</depends>
+  <depends>JavaScript</depends>
 
-    <resource-bundle>messages.BiomeBundle</resource-bundle>
+  <resource-bundle>messages.BiomeBundle</resource-bundle>
 
-    <extensions defaultExtensionNs="com.intellij">
-        <notificationGroup id="Biome" displayType="BALLOON"/>
-        <statusBarWidgetFactory implementation="com.github.biomejs.intellijbiome.widgets.BiomeStatusBarWidgetFactory"
-																id="BiomeWidget"/>
-        <platform.lsp.serverSupportProvider
-                implementation="com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider"/>
-        <projectConfigurable id="Settings.Biome"
-                             bundle="messages.BiomeBundle"
-                             groupId="language"
-                             nonDefaultProject="false"
-                             key="biome.settings.name"
-                             instance="com.github.biomejs.intellijbiome.settings.BiomeSettingsConfigurable"/>
-        <formattingService implementation="com.github.biomejs.intellijbiome.formatter.BiomeFormatterProvider"/>
-    </extensions>
-    <projectListeners>
-        <listener class="com.github.biomejs.intellijbiome.listeners.BiomeConfigListener"
-                  topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
-    </projectListeners>
-    <actions>
-        <group
-                id="com.github.biomejs.intellijbiome.actions-group"
-                text="Biome"
-                icon="/icons/pluginIcon.svg"
-                popup="true"
-        >
-            <add-to-group group-id="ToolsMenu"/>
-            <action
-                    id="com.github.biomejs.intellijbiome.restart-lsp-action"
-                    class="com.github.biomejs.intellijbiome.actions.RestartBiomeServerAction"
-                    text="Restart LSP Server"
-            />
-        </group>
-    </actions>
+  <extensions defaultExtensionNs="com.intellij">
+    <notificationGroup id="Biome" displayType="BALLOON"/>
+    <statusBarWidgetFactory implementation="com.github.biomejs.intellijbiome.widgets.BiomeStatusBarWidgetFactory"
+                            id="BiomeWidget"/>
+    <platform.lsp.serverSupportProvider
+      implementation="com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider"/>
+    <projectConfigurable id="Settings.Biome"
+                         bundle="messages.BiomeBundle"
+                         groupId="language"
+                         nonDefaultProject="false"
+                         key="biome.settings.name"
+                         instance="com.github.biomejs.intellijbiome.settings.BiomeConfigurable"/>
+    <actionOnSaveInfoProvider id="BiomeOnSaveInfoProvider"
+                              implementation="com.github.biomejs.intellijbiome.settings.BiomeOnSaveInfoProvider"
+                              order="after FormatOnSaveInfoProvider, after EsLintOnSaveInfoProvider, before BuildOnSaveInfoProvider, before FileWatcherOnSaveInfoProvider, before UploadOnSaveInfoProvider"/>
+    <actionOnSave id="BiomeCheckOnSaveAction"
+                  implementation="com.github.biomejs.intellijbiome.actions.BiomeCheckOnSaveAction"
+                  order="after FormatOnSaveAction, after ESLintActionOnSave"/>
+  </extensions>
+  <projectListeners>
+    <listener class="com.github.biomejs.intellijbiome.listeners.BiomeConfigListener"
+              topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+  </projectListeners>
+  <actions>
+    <action id="ReformatWithBiomeAction" text="Reformat with Biome" class="com.github.biomejs.intellijbiome.actions.ReformatWithBiomeAction">
+      <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+      <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+      <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift P"/>
+      <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt shift P"/>
+      <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt shift P"/>
+    </action>
+    <group
+      id="com.github.biomejs.intellijbiome.actions-group"
+      text="Biome"
+      icon="/icons/pluginIcon.svg"
+      popup="true"
+    >
+      <add-to-group group-id="ToolsMenu"/>
+      <action
+        id="com.github.biomejs.intellijbiome.restart-lsp-action"
+        class="com.github.biomejs.intellijbiome.actions.RestartBiomeServerAction"
+        text="Restart LSP Server"
+      />
+    </group>
+  </actions>
 </idea-plugin>

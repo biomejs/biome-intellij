@@ -38,7 +38,7 @@ jobs:
       - name: Read version from gradle.properties (nightly)
         if: ${{ inputs.nightly }}
         id: original-version
-        run: echo "version=$(grep -P '^pluginVersion = \K(.+)$' -o gradle.properties)" >> $GITHUB_OUTPUT
+        run: echo "version=$(grep -P '^pluginVersion=\K(.+)$' -o gradle.properties)" >> $GITHUB_OUTPUT
 
       - name: Generate nightly version identifier (nightly)
         if: ${{ inputs.nightly }}
@@ -47,11 +47,11 @@ jobs:
 
       - name: Replace version in gradle.properties (nightly)
         if: ${{ inputs.nightly }}
-        run: sed -i -E 's/^pluginVersion = .*/pluginVersion = ${{ steps.nightly-version.outputs.version }}/' gradle.properties
+        run: sed -i -E 's/^pluginVersion=.*/pluginVersion=${{ steps.nightly-version.outputs.version }}/' gradle.properties
 
       - name: Read final version
         id: version
-        run: echo "version=$(grep -P '^pluginVersion = \K(.+)$' -o gradle.properties)" >> $GITHUB_OUTPUT
+        run: echo "version=$(grep -P '^pluginVersion=\K(.+)$' -o gradle.properties)" >> $GITHUB_OUTPUT
 
       - name: Build
         run: ./gradlew buildPlugin
