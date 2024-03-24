@@ -23,6 +23,6 @@ class BiomeSettingsState : BaseState() {
     var configurationMode by enum(ConfigurationMode.AUTOMATIC)
 
     companion object {
-        const val DEFAULT_FILE_PATTERN = "**/*.{js,mjs,cjs,ts,jsx,tsx,cts,json,jsonc}"
+        const val DEFAULT_FILE_PATTERN = "**/*.{js,mjs,cjs,ts,jsx,tsx,cts,json,jsonc,vue,svelte,astro}"
     }
 }
