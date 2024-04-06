@@ -5,10 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [unreleased]
 
 ### Bug Fixes
+
 - Fix plugin for IntelliJ 2024.1 ([#45](https://github.com/biomejs/biome-intellij/pull/45))
-
-### Bug Fixes
-
 - Added missing double quotes ([#377](https://github.com/biomejs/biome-intellij/pull/377))
 - Use node interpreter to run commands ([#416](https://github.com/biomejs/biome-intellij/pull/416))
 - Binary resolution on windows ([#556](https://github.com/biomejs/biome-intellij/pull/556))
