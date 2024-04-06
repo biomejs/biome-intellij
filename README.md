@@ -1,12 +1,12 @@
 # Biome - IntelliJ Plugin
 
-[![IntelliJ IDEA Ultimate Version](https://img.shields.io/badge/IntelliJ%20IDEA%20Ultimate-2023.2.2-374151.svg?labelcolor=000&logo=intellij-idea&labelColor=black)](https://www.jetbrains.com/idea/)
-[![WebStorm Version](https://img.shields.io/badge/WebStorm-2023.2.2-1F3263.svg?labelcolor=000&logo=webstorm&labelColor=black)](https://www.jetbrains.com/webstorm/)
-[![AppCode Version](https://img.shields.io/badge/AppCode-2023.2.2-2380B0.svg?labelcolor=000&logo=appcode&labelColor=black)](https://www.jetbrains.com/objc/)
-[![PhpStorm Version](https://img.shields.io/badge/PhpStorm-2023.2.2-953D8C.svg?labelcolor=000&logo=phpstorm&labelColor=black)](https://www.jetbrains.com/phpstorm/)
-[![RubyMine Version](https://img.shields.io/badge/RubyMine-2023.2.2-A11523.svg?labelcolor=000&logo=ruby&labelColor=black)](https://www.jetbrains.com/ruby/)
+[![IntelliJ IDEA Ultimate Version](https://img.shields.io/badge/IntelliJ%20IDEA%20Ultimate-2024.1-374151.svg?labelcolor=000&logo=intellij-idea&labelColor=black)](https://www.jetbrains.com/idea/)
+[![WebStorm Version](https://img.shields.io/badge/WebStorm-2024.1-1F3263.svg?labelcolor=000&logo=webstorm&labelColor=black)](https://www.jetbrains.com/webstorm/)
+[![AppCode Version](https://img.shields.io/badge/AppCode-2024.1-2380B0.svg?labelcolor=000&logo=appcode&labelColor=black)](https://www.jetbrains.com/objc/)
+[![PhpStorm Version](https://img.shields.io/badge/PhpStorm-2024.1-953D8C.svg?labelcolor=000&logo=phpstorm&labelColor=black)](https://www.jetbrains.com/phpstorm/)
+[![RubyMine Version](https://img.shields.io/badge/RubyMine-2024.1-A11523.svg?labelcolor=000&logo=ruby&labelColor=black)](https://www.jetbrains.com/ruby/)
 
-[Biome](https://biomejs.dev/) is a powerful tool designed to enhance your development experience. 
+[Biome](https://biomejs.dev/) is a powerful tool designed to enhance your development experience.
 This plugin integrates seamlessly with many [JetBrains IDE's](#supported-ides) to provide the following capabilities.
 
 - 💡 See lints while you type
@@ -50,15 +50,15 @@ This setting overrides the Biome binary used by the plugin.
 
 This plugin is currently supported in the following IDEs:
 
-- [![IntelliJ IDEA Ultimate Version](https://img.shields.io/badge/IntelliJ%20IDEA%20Ultimate-2023.2.2-374151.svg?labelcolor=000&logo=intellij-idea&labelColor=black)](https://www.jetbrains.com/idea/)
-  
-- [![WebStorm Version](https://img.shields.io/badge/WebStorm-2023.2.2-1F3263.svg?labelcolor=000&logo=webstorm&labelColor=black)](https://www.jetbrains.com/webstorm/)
+- [![IntelliJ IDEA Ultimate Version](https://img.shields.io/badge/IntelliJ%20IDEA%20Ultimate-2024.1-374151.svg?labelcolor=000&logo=intellij-idea&labelColor=black)](https://www.jetbrains.com/idea/)
 
-- [![AppCode Version](https://img.shields.io/badge/AppCode-2023.2.2-2380B0.svg?labelcolor=000&logo=appcode&labelColor=black)](https://www.jetbrains.com/objc/)
+- [![WebStorm Version](https://img.shields.io/badge/WebStorm-2024.1-1F3263.svg?labelcolor=000&logo=webstorm&labelColor=black)](https://www.jetbrains.com/webstorm/)
 
-- [![PhpStorm Version](https://img.shields.io/badge/PhpStorm-2023.2.2-953D8C.svg?labelcolor=000&logo=phpstorm&labelColor=black)](https://www.jetbrains.com/phpstorm/)
+- [![AppCode Version](https://img.shields.io/badge/AppCode-2024.1-2380B0.svg?labelcolor=000&logo=appcode&labelColor=black)](https://www.jetbrains.com/objc/)
 
-- [![RubyMine Version](https://img.shields.io/badge/RubyMine-2023.2.2-A11523.svg?labelcolor=000&logo=ruby&labelColor=black)](https://www.jetbrains.com/ruby/)
+- [![PhpStorm Version](https://img.shields.io/badge/PhpStorm-2024.1-953D8C.svg?labelcolor=000&logo=phpstorm&labelColor=black)](https://www.jetbrains.com/phpstorm/)
+
+- [![RubyMine Version](https://img.shields.io/badge/RubyMine-2024.1-A11523.svg?labelcolor=000&logo=ruby&labelColor=black)](https://www.jetbrains.com/ruby/)
 
 ## Usage
 
