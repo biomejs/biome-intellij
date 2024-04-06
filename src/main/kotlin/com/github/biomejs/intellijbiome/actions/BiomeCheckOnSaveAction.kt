@@ -19,6 +19,10 @@ class BiomeCheckOnSaveAction() :
         return settings.formatOnSave || settings.applySafeFixesOnSave || settings.applyUnsafeFixesOnSave
     }
 
+    override fun processDocuments(project: Project, documents: Array<Document>) {
+        BiomeCheckRunner().run(project, features, documents)
+    }
+
     private fun setFeatures(settings: BiomeSettings) {
         features = EnumSet.noneOf(Feature::class.java)
 
@@ -33,10 +37,5 @@ class BiomeCheckOnSaveAction() :
         if (settings.applyUnsafeFixesOnSave) {
             features.add(Feature.UnsafeFixes)
         }
-    }
-
-
-    override fun processDocuments(project: Project, documents: Array<Document?>) {
-        BiomeCheckRunner().run(project, features, documents)
     }
 }

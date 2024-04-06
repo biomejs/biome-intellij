@@ -19,11 +19,11 @@ import java.util.*
 
 class BiomeCheckRunner {
     private val LOG = thisLogger()
-    fun run(project: Project, features: EnumSet<Feature>, documents: Array<Document?>) {
+    fun run(project: Project, features: EnumSet<Feature>, documents: Array<Document>) {
         formatDocuments(
             project,
             features,
-            documents.filterNotNull().toList(),
+            documents.toList(),
             BiomeBundle.message(
                 "biome.run.biome.check.with.features",
                 features.joinToString(prefix = "(", postfix = ")") { it -> it.toString().lowercase() }
