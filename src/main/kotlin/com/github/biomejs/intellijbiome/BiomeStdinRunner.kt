@@ -48,8 +48,8 @@ class BiomeStdinRunner(private val project: Project) : BiomeRunner {
     }
 
     override fun createCommandLine(file: VirtualFile, action: String, args: List<String>): GeneralCommandLine {
-        val configPath = biomePackage.configPath
-        val exePath = biomePackage.binaryPath()
+        val configPath = biomePackage.configPath(file)
+        val exePath = biomePackage.binaryPath(configPath, false)
         val params = SmartList(action, "--stdin-file-path", file.path)
         params.addAll(args)
 
@@ -64,6 +64,7 @@ class BiomeStdinRunner(private val project: Project) : BiomeRunner {
 
         return GeneralCommandLine().runBiomeCLI(project, exePath).apply {
             withInput(File(file.path))
+            withWorkDirectory(configPath)
             addParameters(params)
         }
     }

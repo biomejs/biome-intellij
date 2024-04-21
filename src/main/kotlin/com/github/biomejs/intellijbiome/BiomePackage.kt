@@ -8,6 +8,7 @@ import com.intellij.execution.util.ExecUtil
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.util.NodePackage
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import java.nio.file.Paths
 
 class BiomePackage(private val project: Project) {
@@ -17,17 +18,15 @@ class BiomePackage(private val project: Project) {
             return NodePackage.findDefaultPackage(project, "@biomejs/biome", interpreter)
         }
 
-    val configPath: String?
-        get() {
-            val settings = BiomeSettings.getInstance(project)
-            val configurationMode = settings.configurationMode
-
-            return when (configurationMode) {
-                ConfigurationMode.DISABLED -> null
-                ConfigurationMode.AUTOMATIC -> null
-                ConfigurationMode.MANUAL -> BiomeSettings.getInstance(project).configPath
-            }
+    fun configPath(file: VirtualFile): String? {
+        val settings = BiomeSettings.getInstance(project)
+        val configurationMode = settings.configurationMode
+        return when (configurationMode) {
+            ConfigurationMode.DISABLED -> null
+            ConfigurationMode.AUTOMATIC -> findPathUpwards(file, configValidExtensions.map { "$configName.$it" })?.path
+            ConfigurationMode.MANUAL -> settings.configPath
         }
+    }
 
     fun versionNumber(): String? {
         val settings = BiomeSettings.getInstance(project)
@@ -35,25 +34,30 @@ class BiomePackage(private val project: Project) {
         return when (configurationMode) {
             ConfigurationMode.DISABLED -> null
             ConfigurationMode.AUTOMATIC -> nodePackage?.getVersion(project)?.toString()
-            ConfigurationMode.MANUAL -> getBinaryVersion(binaryPath())
+            ConfigurationMode.MANUAL -> getBinaryVersion(binaryPath(null, true))
         }
     }
 
-    fun binaryPath(): String? {
+    fun binaryPath(configPath: String?, showVersion: Boolean): String? {
         val settings = BiomeSettings.getInstance(project)
         val configurationMode = settings.configurationMode
         return when (configurationMode) {
             ConfigurationMode.DISABLED -> null
-            ConfigurationMode.AUTOMATIC -> nodePackage?.getAbsolutePackagePathToRequire(project)?.let {
-                Paths.get(
-                    it,
-                    "bin/biome"
-                )
-            }?.toString()
-
-            ConfigurationMode.MANUAL -> settings.executablePath
+            // don't try to find the executable path if the configuration file does not exist.
+            // This will prevent start LSP and formatting in case if biome is not used in the project.
+            ConfigurationMode.AUTOMATIC -> if (configPath != null || showVersion) findBiomeExecutable() else null
+            // if configuration mode is manual, return the executable path if it is not empty string.
+            // Otherwise, try to find the executable path.
+            ConfigurationMode.MANUAL -> if (settings.executablePath == "") findBiomeExecutable() else settings.executablePath
         }
     }
+
+    private fun findBiomeExecutable() = nodePackage?.getAbsolutePackagePathToRequire(project)?.let {
+        Paths.get(
+            it,
+            "bin/biome"
+        )
+    }?.toString()
 
 
     private fun getBinaryVersion(binaryPath: String?): String? {
@@ -76,5 +80,16 @@ class BiomePackage(private val project: Project) {
     companion object {
         const val configName = "biome"
         val configValidExtensions = listOf("json", "jsonc")
+    }
+
+    private fun findPathUpwards(file: VirtualFile, fileName: List<String>): VirtualFile? {
+        var cur = file.parent
+        while (cur != null) {
+            if (cur.children.find { name -> fileName.any { it == name.name } } != null) {
+                return cur
+            }
+            cur = cur.parent
+        }
+        return null
     }
 }
