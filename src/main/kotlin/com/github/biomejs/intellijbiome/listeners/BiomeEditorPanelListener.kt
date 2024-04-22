@@ -8,6 +8,8 @@ import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.project.Project
 
+// This implements a listener for file editor manager events.
+// It listens for file selection changes in IDE and restarts LSP server if selected file in editor should be checked with different Biome config.
 class BiomeEditorPanelListener(private val project: Project) : FileEditorManagerListener {
 
     private var currentConfigPath: String? = null
