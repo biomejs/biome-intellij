@@ -40,6 +40,13 @@ The plugin tries to use Biome from your project’s local dependencies (`node_mo
 
 You can also explicitly specify the `biome` binary the extension should use by configuring the `Biome CLI Path` in `Settings`->`Language & Frameworks`->`Biome Settings`.
 
+### Biome Config resolution
+In `Automatic Biome configuration` mode, the plugin will look for a biome configuration file upwards from the current file. If it doesn't find one, it will stop LSP server.
+There are several reasons to behave like this:
+1. In IDEA with multiple projects in one code base it sound reasonable to disable LSP server if there is no biome configuration file in the project.
+2. In multi-root workspace, we should run biome from proper working directory, so that `include` and `exclude` paths are resolved correctly.
+3. As currently LSP server proxy doesn't provide option to work with multiple configs, we should provide path to the biome configuration file and restart LSP server once active file is changed.
+
 ### Plugin settings
 
 #### `Biome CLI Path`
