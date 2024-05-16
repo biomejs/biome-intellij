@@ -86,18 +86,22 @@ class BiomeStdinRunner(private val project: Project) : BiomeRunner {
     private fun getCheckFlags(features: EnumSet<Feature>): List<String> {
         val args = SmartList<String>()
 
+        if (features.isEmpty()) return args
+
         if (features.contains(Feature.Format)) {
             args.add("--formatter-enabled=true")
         } else {
             args.add("--formatter-enabled=false")
         }
 
-        if (features.contains(Feature.SafeFixes) && !features.contains(Feature.UnsafeFixes)) {
-            args.add("--apply")
+        if (!features.contains(Feature.SafeFixes) && !features.contains(Feature.UnsafeFixes)) {
+            args.add("--linter-enabled=false")
         }
 
         if (features.contains(Feature.UnsafeFixes)) {
             args.add("--apply-unsafe")
+        } else {
+            args.add("--apply")
         }
 
         return args
