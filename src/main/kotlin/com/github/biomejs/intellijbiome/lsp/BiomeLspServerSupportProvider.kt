@@ -1,10 +1,12 @@
 package com.github.biomejs.intellijbiome.lsp
 
 import com.github.biomejs.intellijbiome.BiomeBundle
+import com.github.biomejs.intellijbiome.BiomeIcons
 import com.github.biomejs.intellijbiome.BiomePackage
 import com.github.biomejs.intellijbiome.extensions.runBiomeCLI
 import com.github.biomejs.intellijbiome.listeners.BIOME_CONFIG_RESOLVED_TOPIC
 import com.github.biomejs.intellijbiome.services.BiomeServerService
+import com.github.biomejs.intellijbiome.settings.BiomeConfigurable
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.execution.ExecutionException
 import com.intellij.execution.configurations.GeneralCommandLine
@@ -13,6 +15,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.*
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
+import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import com.intellij.util.SmartList
 
 
@@ -34,6 +37,11 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         val executable = BiomePackage(project).binaryPath(configPath, false) ?: return
         serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, executable, configPath))
     }
+
+    override fun createLspServerWidgetItem(lspServer: LspServer, currentFile: VirtualFile?) = LspServerWidgetItem(
+        lspServer, currentFile,
+        BiomeIcons.BiomeIcon, BiomeConfigurable::class.java
+    )
 }
 
 @Suppress("UnstableApiUsage")
