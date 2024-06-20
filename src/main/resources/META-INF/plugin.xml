@@ -18,7 +18,7 @@
 
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.modules.ultimate</depends>
-  <depends>com.intellij.modules.javascript</depends>
+  <depends>JavaScript</depends>
 
   <resource-bundle>messages.BiomeBundle</resource-bundle>
 
