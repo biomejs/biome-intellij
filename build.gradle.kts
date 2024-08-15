@@ -1,4 +1,4 @@
-import java.net.URI
+import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 fun properties(key: String) = providers.gradleProperty(key)
 fun environment(key: String) = providers.environmentVariable(key)
@@ -7,7 +7,7 @@ val remoteRobotVersion = "0.11.21"
 plugins {
   id("java") // Java support
   alias(libs.plugins.kotlin) // Kotlin support
-  alias(libs.plugins.gradleIntelliJPlugin) // Gradle IntelliJ Plugin
+  alias(libs.plugins.intelliJPlatform) // Gradle IntelliJ Plugin
 }
 
 group = properties("pluginGroup").get()
@@ -16,11 +16,16 @@ version = properties("pluginVersion").get()
 // Configure project's dependencies
 repositories {
   mavenCentral()
-  maven { url = URI("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies") }
+
+  // IntelliJ Platform Gradle Plugin Repositories Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-repositories-extension.html
+  intellijPlatform {
+    defaultRepositories()
+  }
 }
 
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
 dependencies {
+  testImplementation(libs.junit)
   testImplementation("com.intellij.remoterobot:remote-robot:$remoteRobotVersion")
   testImplementation("com.intellij.remoterobot:remote-fixtures:$remoteRobotVersion")
   testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
@@ -29,6 +34,22 @@ dependencies {
 
   // Logging Network Calls
   testImplementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+  // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
+  intellijPlatform {
+    create(properties("platformType"), properties("platformVersion"))
+
+    // Plugin Dependencies. Uses `platformBundledPlugins` property from the gradle.properties file for bundled IntelliJ Platform plugins.
+    bundledPlugins(properties("platformBundledPlugins").map { it.split(',') })
+
+    // Plugin Dependencies. Uses `platformPlugins` property from the gradle.properties file for plugin from JetBrains Marketplace.
+    plugins(properties("platformPlugins").map { it.split(',') })
+
+    instrumentationTools()
+    pluginVerifier()
+    zipSigner()
+    testFramework(TestFrameworkType.Platform)
+  }
 }
 
 // Set the JVM language level used to build the project. Use Java 11 for 2020.3+, and Java 17 for 2022.2+.
@@ -37,13 +58,15 @@ kotlin {
 }
 
 // Configure Gradle IntelliJ Plugin - read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
-intellij {
-  pluginName = properties("pluginName")
-  version = properties("platformVersion")
-  type = properties("platformType")
+intellijPlatform {
+  pluginConfiguration {
+    version = properties("pluginVersion")
 
-  // Plugin Dependencies. Uses `platformPlugins` property from the gradle.properties file.
-  plugins = properties("platformPlugins").map { it.split(',').map(String::trim).filter(String::isNotEmpty) }
+    ideaVersion {
+      sinceBuild = properties("pluginSinceBuild")
+      untilBuild = properties("pluginUntilBuild")
+    }
+  }
 }
 
 tasks {
@@ -55,26 +78,6 @@ tasks {
     version = properties("pluginVersion")
     sinceBuild = properties("pluginSinceBuild")
     untilBuild = properties("pluginUntilBuild")
-  }
-
-  downloadRobotServerPlugin {
-    version.set(remoteRobotVersion)
-  }
-
-  // Configure UI tests plugin
-  // Read more: https://github.com/JetBrains/intellij-ui-test-robot
-  runIdeForUiTests {
-    systemProperty("robot-server.port", "8082")
-    systemProperty("ide.mac.message.dialogs.as.sheets", "false")
-    systemProperty("jb.privacy.policy.text", "<!--999.999-->")
-    systemProperty("jb.consents.confirmation.enabled", "false")
-    systemProperty("ide.mac.file.chooser.native", "false")
-    systemProperty("jbScreenMenuBar.enabled", "false")
-    systemProperty("apple.laf.useScreenMenuBar", "false")
-    systemProperty("idea.trust.all.projects", "true")
-    systemProperty("ide.show.tips.on.startup.default.value", "false")
-    systemProperty("eap.require.license", "false")
-
   }
 
   test {
@@ -96,5 +99,29 @@ tasks {
   }
 }
 
+intellijPlatformTesting {
+  runIde {
+    register("runIdeForUiTests") {
+      task {
+        jvmArgumentProviders += CommandLineArgumentProvider {
+          listOf(
+            "-Drobot-server.port=8082",
+            "-Dide.mac.message.dialogs.as.sheets=false",
+            "-Djb.privacy.policy.text=<!--999.999-->",
+            "-Djb.consents.confirmation.enabled=false",
+            "-Dide.mac.file.chooser.native=false",
+            "-DjbScreenMenuBar.enabled=false",
+            "-Dapple.laf.useScreenMenuBar=false",
+            "-Didea.trust.all.projects=true",
+            "-Dide.show.tips.on.startup.default.value=false",
+            "-Deap.require.license=false"
+          )
+        }
+      }
 
-
+      plugins {
+        robotServerPlugin()
+      }
+    }
+  }
+}
