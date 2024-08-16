@@ -1,17 +1,15 @@
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
-fun properties(key: String) = providers.gradleProperty(key)
-fun environment(key: String) = providers.environmentVariable(key)
 val remoteRobotVersion = "0.11.21"
 
 plugins {
   id("java") // Java support
   alias(libs.plugins.kotlin) // Kotlin support
-  alias(libs.plugins.intelliJPlatform) // Gradle IntelliJ Plugin
+  alias(libs.plugins.intelliJPlatform) // IntelliJ Platform Gradle Plugin
 }
 
-group = properties("pluginGroup").get()
-version = properties("pluginVersion").get()
+group = providers.gradleProperty("pluginGroup").get()
+version = providers.gradleProperty("pluginVersion").get()
 
 // Configure project's dependencies
 repositories {
@@ -37,13 +35,13 @@ dependencies {
 
   // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
   intellijPlatform {
-    create(properties("platformType"), properties("platformVersion"))
+    create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
 
     // Plugin Dependencies. Uses `platformBundledPlugins` property from the gradle.properties file for bundled IntelliJ Platform plugins.
-    bundledPlugins(properties("platformBundledPlugins").map { it.split(',') })
+    bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(',') })
 
     // Plugin Dependencies. Uses `platformPlugins` property from the gradle.properties file for plugin from JetBrains Marketplace.
-    plugins(properties("platformPlugins").map { it.split(',') })
+    plugins(providers.gradleProperty("platformPlugins").map { it.split(',') })
 
     instrumentationTools()
     pluginVerifier()
@@ -60,42 +58,48 @@ kotlin {
 // Configure Gradle IntelliJ Plugin - read more: https://plugins.jetbrains.com/docs/intellij/tools-gradle-intellij-plugin.html
 intellijPlatform {
   pluginConfiguration {
-    version = properties("pluginVersion")
+    version = providers.gradleProperty("pluginVersion")
 
     ideaVersion {
-      sinceBuild = properties("pluginSinceBuild")
-      untilBuild = properties("pluginUntilBuild")
+      sinceBuild = providers.gradleProperty("pluginSinceBuild")
+      untilBuild = providers.gradleProperty("pluginUntilBuild")
+    }
+  }
+
+  signing {
+    certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+    privateKey = providers.environmentVariable("PRIVATE_KEY")
+    password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+  }
+
+  publishing {
+    token = providers.environmentVariable("PUBLISH_TOKEN")
+    // The pluginVersion is based on the SemVer (https://semver.org) and supports pre-release labels, like 2.1.7-alpha.3
+    // Specify pre-release label to publish the plugin in a custom Release Channel automatically. Read more:
+    // https://plugins.jetbrains.com/docs/intellij/deployment.html#specifying-a-release-channel
+    channels = providers.gradleProperty("pluginVersion").map { listOf(it.split('-').getOrElse(1) { "default" }.split('.').first()) }
+  }
+
+  pluginVerification {
+    ides {
+      recommended()
     }
   }
 }
 
 tasks {
   wrapper {
-    gradleVersion = properties("gradleVersion").get()
+    gradleVersion = providers.gradleProperty("gradleVersion").get()
   }
 
   patchPluginXml {
-    version = properties("pluginVersion")
-    sinceBuild = properties("pluginSinceBuild")
-    untilBuild = properties("pluginUntilBuild")
+    version = providers.gradleProperty("pluginVersion")
+    sinceBuild = providers.gradleProperty("pluginSinceBuild")
+    untilBuild = providers.gradleProperty("pluginUntilBuild")
   }
 
   test {
     useJUnitPlatform()
-  }
-
-  signPlugin {
-    certificateChain = environment("CERTIFICATE_CHAIN")
-    privateKey = environment("PRIVATE_KEY")
-    password = environment("PRIVATE_KEY_PASSWORD")
-  }
-
-  publishPlugin {
-    token = environment("PUBLISH_TOKEN")
-    // The pluginVersion is based on the SemVer (https://semver.org) and supports pre-release labels, like 2.1.7-alpha.3
-    // Specify pre-release label to publish the plugin in a custom Release Channel automatically. Read more:
-    // https://plugins.jetbrains.com/docs/intellij/deployment.html#specifying-a-release-channel
-    channels = properties("pluginVersion").map { listOf(it.split('-').getOrElse(1) { "default" }.split('.').first()) }
   }
 }
 
