@@ -6,7 +6,7 @@ import com.intellij.openapi.editor.Document
 import com.intellij.openapi.project.Project
 
 
-class BiomeCheckOnSaveAction() :
+class BiomeCheckOnSaveAction :
     ActionsOnSaveFileDocumentManagerListener.ActionOnSave() {
     override fun isEnabledForProject(project: Project): Boolean {
         val settings = BiomeSettings.getInstance(project)
