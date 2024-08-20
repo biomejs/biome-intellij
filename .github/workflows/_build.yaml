@@ -68,4 +68,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Biome-${{ steps.version.outputs.version }}.zip
-          path: build/distributions/Biome-${{ steps.version.outputs.version }}.zip
+          path: build/distributions/intellij-biome-${{ steps.version.outputs.version }}.zip
