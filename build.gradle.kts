@@ -92,12 +92,6 @@ tasks {
     gradleVersion = providers.gradleProperty("gradleVersion").get()
   }
 
-  patchPluginXml {
-    version = providers.gradleProperty("pluginVersion")
-    sinceBuild = providers.gradleProperty("pluginSinceBuild")
-    untilBuild = providers.gradleProperty("pluginUntilBuild")
-  }
-
   test {
     useJUnitPlatform()
   }
