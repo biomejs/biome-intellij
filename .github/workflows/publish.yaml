@@ -75,9 +75,6 @@ jobs:
         with:
           name: Biome-${{ needs.build.outputs.version }}.zip
 
-      - name: Display structure of downloaded files
-        run: ls -R
-
       - name: Generate release notes
         id: release-notes
         uses: orhun/git-cliff-action@v2
@@ -91,7 +88,7 @@ jobs:
         run: tail -n +3 < CHANGES.md > RELEASE_NOTES.md
 
       - name: Rename artifact
-        run: mv "Biome-${{ needs.build.outputs.version }}.zip" biome.zip
+        run: mv "intellij-biome-${{ needs.build.outputs.version }}.zip" biome.zip
 
       - name: Publish extension to GitHub Releases
         uses: softprops/action-gh-release@v1
