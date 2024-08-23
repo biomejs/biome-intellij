@@ -28,6 +28,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-home-cache-cleanup: true
+
       - name: Download the artifact
         uses: actions/download-artifact@v4
         with:
@@ -63,6 +74,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: Biome-${{ needs.build.outputs.version }}.zip
+
+      - name: Display structure of downloaded files
+        run: ls -R
 
       - name: Generate release notes
         id: release-notes
