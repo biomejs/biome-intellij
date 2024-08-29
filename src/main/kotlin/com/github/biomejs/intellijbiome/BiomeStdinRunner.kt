@@ -98,10 +98,9 @@ class BiomeStdinRunner(private val project: Project) : BiomeRunner {
             args.add("--linter-enabled=false")
         }
 
+        args.add("--write")
         if (features.contains(Feature.UnsafeFixes)) {
-            args.add("--apply-unsafe")
-        } else {
-            args.add("--apply")
+            args.add("--unsafe")
         }
 
         return args
