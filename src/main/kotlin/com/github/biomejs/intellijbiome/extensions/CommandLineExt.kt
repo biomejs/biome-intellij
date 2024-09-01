@@ -12,6 +12,7 @@ import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.interpreter.local.NodeJsLocalInterpreter
 import com.intellij.javascript.nodejs.interpreter.wsl.WslNodeInterpreter
 import com.intellij.openapi.project.Project
+import com.intellij.util.io.BaseOutputReader
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.CompletableFuture
@@ -23,7 +24,15 @@ val ProcessEvent.isSuccess: Boolean get() = exitCode == 0
 fun GeneralCommandLine.runProcessFuture(): CompletableFuture<ProcessResult> {
     val future = CompletableFuture<ProcessResult>()
 
-    val processHandler = CapturingProcessHandler(this.withCharset(StandardCharsets.UTF_8))
+    val processHandler = object: CapturingProcessHandler(this.withCharset(StandardCharsets.UTF_8)) {
+        override fun readerOptions(): BaseOutputReader.Options {
+            return object : BaseOutputReader.Options() {
+                // This option ensures that line separators are not converted to LF
+                // when the formatter sends e.g., CRLF
+                override fun splitToLines(): Boolean = false
+            }
+        }
+    }
 
     processHandler.addProcessListener(object : CapturingProcessAdapter() {
         override fun processTerminated(event: ProcessEvent) {
