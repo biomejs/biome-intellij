@@ -92,4 +92,24 @@ class BiomePackage(private val project: Project) {
         }
         return null
     }
+
+    fun compareVersion(version1: String, version2: String): Int {
+        val parts1 = version1.split(".").map { it.toInt() }
+        val parts2 = version2.split(".").map { it.toInt() }
+
+        val maxLength = maxOf(parts1.size, parts2.size)
+
+        for (i in 0 until maxLength){
+            val v1 = if (i < parts1.size) parts1[i] else 0
+            val v2 = if (i < parts2.size) parts2[i] else 0
+
+            when {
+                v1 < v2 -> return -1
+                v1 > v2 -> return 1
+            }
+        }
+
+        return 0
+    }
+
 }

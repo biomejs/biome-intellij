@@ -1,9 +1,6 @@
 package com.github.biomejs.intellijbiome.actions
 
-import com.github.biomejs.intellijbiome.BiomeBundle
-import com.github.biomejs.intellijbiome.BiomeRunner
-import com.github.biomejs.intellijbiome.BiomeStdinRunner
-import com.github.biomejs.intellijbiome.Feature
+import com.github.biomejs.intellijbiome.*
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.lang.javascript.linter.GlobPatternUtil
 import com.intellij.openapi.command.WriteCommandAction
@@ -40,6 +37,7 @@ class BiomeCheckRunner {
         val runner = BiomeStdinRunner(project)
         val manager = FileDocumentManager.getInstance()
         val settings = BiomeSettings.getInstance(project)
+        val biomePackage = BiomePackage(project)
         val requests = documents
             .mapNotNull { document -> manager.getFile(document)?.let { document to it } }
             .filter { GlobPatternUtil.isFileMatchingGlobPattern(project, settings.filePattern, it.second) }
@@ -52,7 +50,7 @@ class BiomeCheckRunner {
                         indicator.text = commandDescription
 
                         requests.forEach { request ->
-                            val response = runner.check(request, features)
+                            val response = runner.check(request, features, biomePackage)
 
                             if (!indicator.isCanceled) {
                                 applyChanges(project, request, response)
