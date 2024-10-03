@@ -20,7 +20,7 @@ interface BiomeRunner {
         val DEFAULT_TIMEOUT = 30000.milliseconds
     }
 
-    fun check(request: Request, features: EnumSet<Feature>): Response
+    fun check(request: Request, features: EnumSet<Feature>, biomePackage: BiomePackage): Response
     fun createCommandLine(file: VirtualFile, action: String, args: List<String> = listOf()): GeneralCommandLine
 
 

@@ -18,8 +18,8 @@ import kotlin.time.Duration
 class BiomeStdinRunner(private val project: Project) : BiomeRunner {
     private val biomePackage = BiomePackage(project)
 
-    override fun check(request: BiomeRunner.Request, features: EnumSet<Feature>): BiomeRunner.Response {
-        val commandLine = createCommandLine(request.virtualFile, "check", getCheckFlags(features))
+    override fun check(request: BiomeRunner.Request, features: EnumSet<Feature>, biomePackage: BiomePackage): BiomeRunner.Response {
+        val commandLine = createCommandLine(request.virtualFile, "check", getCheckFlags(features, biomePackage))
         val file = request.virtualFile
         val timeout = request.timeout
         val failureMessage = BiomeBundle.message(
@@ -83,7 +83,7 @@ class BiomeStdinRunner(private val project: Project) : BiomeRunner {
         return future
     }
 
-    private fun getCheckFlags(features: EnumSet<Feature>): List<String> {
+    fun getCheckFlags(features: EnumSet<Feature>, biomePackage: BiomePackage): List<String> {
         val args = SmartList<String>()
 
         if (features.isEmpty()) return args
@@ -98,10 +98,21 @@ class BiomeStdinRunner(private val project: Project) : BiomeRunner {
             args.add("--linter-enabled=false")
         }
 
-        args.add("--write")
-        if (features.contains(Feature.UnsafeFixes)) {
-            args.add("--unsafe")
+        val version = biomePackage.versionNumber()
+        if (version === null || version.isEmpty() || biomePackage.compareVersion(version, "1.8.0") >= 0) {
+            args.add("--write")
+            if (features.contains(Feature.UnsafeFixes)) {
+                args.add("--unsafe")
+            }
+        } else {
+            if (features.contains(Feature.UnsafeFixes)) {
+                args.add("--apply-unsafe")
+            } else {
+                args.add("--apply")
+            }
         }
+
+        args.add("--skip-errors")
 
         return args
     }
