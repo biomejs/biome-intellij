@@ -2,6 +2,7 @@ package com.github.biomejs.intellijbiome.actions
 
 import com.github.biomejs.intellijbiome.*
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
+import com.intellij.codeStyle.AbstractConvertLineSeparatorsAction
 import com.intellij.lang.javascript.linter.GlobPatternUtil
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.diagnostic.thisLogger
@@ -12,6 +13,9 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.text.StringUtil
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.util.LineSeparator
 import java.util.*
 
 class BiomeCheckRunner {
@@ -77,10 +81,22 @@ class BiomeCheckRunner {
     ) {
         when (response) {
             is BiomeRunner.Response.Success -> {
+                val text = response.code
+                val lineSeparator = StringUtil.detectSeparators(text)
+
                 WriteCommandAction.writeCommandAction(project)
                     .withName(request.commandDescription)
                     .run<Exception> {
-                        request.document.setText(response.code)
+                        if (!StringUtil.equals(request.document.text, text)) {
+                            request.document.setText(text)
+                        }
+
+                        setDetectedLineSeparator(
+                            project,
+                            request.virtualFile,
+                            lineSeparator
+                        )
+
                         FileDocumentManager.getInstance().saveDocument(request.document)
                     }
             }
@@ -89,5 +105,23 @@ class BiomeCheckRunner {
                 LOG.error("${response.title} - ${response.description}")
             }
         }
+    }
+
+    /**
+     * [Taken from the JetBrains Prettier Plugin](https://github.com/JetBrains/intellij-plugins/blob/5673be79dd9e0fff7ed98e58a7d071a5a5f96d87/prettierJS/src/com/intellij/prettierjs/ReformatWithPrettierAction.java#L486)
+     * [Apache License 2.0](https://github.com/JetBrains/intellij-plugins/blob/5673be79dd9e0fff7ed98e58a7d071a5a5f96d87/prettierJS/LICENSE.TXT)
+     *
+     *  @return true if the line separators were updated
+     */
+    private fun setDetectedLineSeparator(project: Project, vFile: VirtualFile, newSeparator: LineSeparator?): Boolean {
+        if (newSeparator != null) {
+            val newSeparatorString: String = newSeparator.separatorString
+
+            if (!StringUtil.equals(vFile.detectedLineSeparator, newSeparatorString)) {
+                AbstractConvertLineSeparatorsAction.changeLineSeparators(project, vFile, newSeparatorString)
+                return true
+            }
+        }
+        return false
     }
 }
