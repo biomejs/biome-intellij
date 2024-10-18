@@ -4,17 +4,40 @@
   <name>Biome</name>
   <vendor>biomejs</vendor>
   <description><![CDATA[
-    <a href="https://biomejs.dev">Biome</a> plugin for JetBrains IDEs.
+    <h3>Biome IntelliJ Plugin</h3>
 
-    <h3>Features</h3>
+    <p>The Biome IntelliJ Plugin provides comprehensive support for Biome within IntelliJ IDEA.</p>
 
-    <ul>
+    <b>Features:</b>
+     <ul>
         <li>Linting</li>
         <li>Quick Fix (from mouse-over, <code>⌥⏎</code> or <code>Alt+Enter</code>)</li>
         <li>Reformat your code with <code>⌥⇧ ⌘ L</code> or <code>Ctrl+Alt+L</code></li>
-    </ul>
-    ]]></description>
+     </ul>
 
+    <p><a href="https://biomejs.dev/">Biome</a> is a fast formatter for JavaScript, TypeScript, JSX, TSX, JSON, CSS, and GraphQL that scores 97% compatibility with Prettier, saving CI and developer time.</p>
+
+    <p>It is also a performant linter for JavaScript, TypeScript, JSX, CSS, and GraphQL, featuring 281 rules from ESLint, TypeScript ESLint, and other sources.</p>
+
+    <p>Not only can you format and lint your code separately, you can do it all at once with a single command!</p>
+
+    <ul>
+        <li>Fast Built with Rust and an innovative architecture inspired by rust-analyzer.</li>
+        <li>Zero configuration needed to get started. Extensive options available for when you need them.</li>
+        <li>Scalable Designed to handle codebases of any size. Focus on growing product instead of your tools.</li>
+        <li>With tight internal integration we are able to reuse previous work and any improvement to one tool improves them all.</li>
+        <li>Actionable & Informative Avoid obscure error messages, when we tell you something is wrong, we tell you exactly where the problem is and how to fix it.</li>
+        <li>Out of the box support for all the language features you use today. First class support for TypeScript and JSX.</li>
+    </ul>
+
+    <b>Resources: </b>
+    <ul>
+        <li><a href="https://biomejs.dev/">Biome Official Website</a></li>
+        <li><a href="https://biomejs.dev/chat">Biome Official Discord Server</a></li>
+        <li><a href="https://github.com/biomejs/biome-intellij">Biome Intellij Repository</a></li>
+        <li><a href="https://github.com/biomejs/biome-intellij/issues">Issue Tracker</a></li>
+     </ul>
+  ]]></description>
 
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.modules.ultimate</depends>
