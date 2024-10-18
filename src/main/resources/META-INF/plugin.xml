@@ -33,20 +33,6 @@
     <p><b>Resources: </b> <a href="https://biomejs.dev/">Biome</a>, <a href="https://github.com/biomejs/biome-intellij">Biome Intellij</a>, <a href="https://github.com/biomejs/biome-intellij/issues">Issue Tracker</a></p>
   ]]></description>
 
-  <change-notes><![CDATA[
-        <h3>Bug Fixes</h3>
-        <ul>
-            <li>Set plugin version in gradle properties (#78)</li>
-            <li>Upload build artifact (#79)</li>
-            <li>Rename artifact with intellij-biome- instead of Biome- prefix (#81)</li>
-        </ul>
-        <h3>Features</h3>
-        <ul>
-            <li>Migrate to IntelliJ Platform Gradle Plugin (#77)</li>
-        </ul>
-    ]]></change-notes>
-
-
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.modules.ultimate</depends>
   <depends>JavaScript</depends>
