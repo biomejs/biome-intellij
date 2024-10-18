@@ -30,7 +30,13 @@
         <li>Out of the box support for all the language features you use today. First class support for TypeScript and JSX.</li>
     </ul>
 
-    <p><b>Resources: </b> <a href="https://biomejs.dev/">Biome</a>, <a href="https://github.com/biomejs/biome-intellij">Biome Intellij</a>, <a href="https://github.com/biomejs/biome-intellij/issues">Issue Tracker</a></p>
+    <b>Resources: </b>
+    <ul>
+        <li><a href="https://biomejs.dev/">Biome Official Website</a></li>
+        <li><a href="https://biomejs.dev/chat">Biome Official Discord Server</a></li>
+        <li><a href="https://github.com/biomejs/biome-intellij">Biome Intellij Repository</a></li>
+        <li><a href="https://github.com/biomejs/biome-intellij/issues">Issue Tracker</a></li>
+     </ul>
   ]]></description>
 
   <depends>com.intellij.modules.platform</depends>
