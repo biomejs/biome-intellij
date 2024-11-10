@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Features
+
+- Remove reformat action in favor of LSP reformatter
+
 ## 1.0.0
 
 ### Bug Fixes
