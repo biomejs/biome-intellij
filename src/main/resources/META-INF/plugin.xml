@@ -57,7 +57,7 @@
                          instance="com.github.biomejs.intellijbiome.settings.BiomeConfigurable"/>
     <actionOnSaveInfoProvider id="BiomeOnSaveInfoProvider"
                               implementation="com.github.biomejs.intellijbiome.settings.BiomeOnSaveInfoProvider"
-                              order="after FormatOnSaveInfoProvider, after EsLintOnSaveInfoProvider, before BuildOnSaveInfoProvider, before FileWatcherOnSaveInfoProvider, before UploadOnSaveInfoProvider"/>
+                              order="after FormatOnSaveInfoProvider, after EsLintOnSaveInfoProvider, before FileWatcherOnSaveInfoProvider, before UploadOnSaveInfoProvider"/>
     <actionOnSave id="BiomeCheckOnSaveAction"
                   implementation="com.github.biomejs.intellijbiome.actions.BiomeCheckOnSaveAction"
                   order="after FormatOnSaveAction, after ESLintActionOnSave"/>
@@ -67,13 +67,6 @@
               topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
   </projectListeners>
   <actions>
-    <action id="ReformatWithBiomeAction" text="Reformat with Biome" class="com.github.biomejs.intellijbiome.actions.ReformatWithBiomeAction">
-      <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-      <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
-      <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift P"/>
-      <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt shift P"/>
-      <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt shift P"/>
-    </action>
     <group
       id="com.github.biomejs.intellijbiome.actions-group"
       text="Biome"
