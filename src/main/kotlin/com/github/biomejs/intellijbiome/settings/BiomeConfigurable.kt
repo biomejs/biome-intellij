@@ -117,9 +117,9 @@ class BiomeConfigurable(internal val project: Project) :
 
                 row(BiomeBundle.message("biome.config.path.label")) {
                     textFieldWithBrowseButton(
-                        BiomeBundle.message("biome.config.path.label"),
-                        project,
                         FileChooserDescriptorFactory.createSingleFileOrFolderDescriptor()
+                            .withTitle(BiomeBundle.message("biome.config.path.label")),
+                        project,
                     ) { fileChosen(it) }
                         .bindText(settings::configPath)
                         .validationOnInput(validateConfigDir())
