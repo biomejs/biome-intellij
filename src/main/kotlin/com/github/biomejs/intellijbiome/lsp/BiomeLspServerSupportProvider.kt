@@ -45,19 +45,6 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
 }
 
 @Suppress("UnstableApiUsage")
-class BiomeLspServerManagerListener(val project: Project) : LspServerManagerListener {
-    override fun serverStateChanged(lspServer: LspServer) {
-        if (lspServer.descriptor is BiomeLspServerDescriptor && lspServer.state == LspServerState.ShutdownUnexpectedly) {
-            // restart again if the server was shutdown unexpectedly.
-            // This can be caused by race condition, when we restart LSP server because of config change,
-            // but Intellij also tried to send a request to it at the same time.
-            // Unfortunate There is no way prevent IDEA send requests after LSP started.
-            project.service<BiomeServerService>().restartBiomeServer()
-        }
-    }
-}
-
-@Suppress("UnstableApiUsage")
 private class BiomeLspServerDescriptor(project: Project, val executable: String, val configPath: String?) :
     ProjectWideLspServerDescriptor(project, "Biome") {
     private val biomePackage = BiomePackage(project)
