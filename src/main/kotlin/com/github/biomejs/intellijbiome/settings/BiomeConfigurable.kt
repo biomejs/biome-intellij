@@ -256,7 +256,8 @@ class BiomeConfigurable(internal val project: Project) :
         override fun get(): Boolean =
             getter()
 
-        override fun afterChange(parentDisposable: Disposable?, listener: (Boolean) -> Unit) {
+        override fun afterChange(parentDisposable: Disposable?,
+            listener: (Boolean) -> Unit) {
             fun emitChange(radio: JBRadioButton) {
                 if (radio.isSelected) {
                     listener(afterConfigModeChangeGetter())
