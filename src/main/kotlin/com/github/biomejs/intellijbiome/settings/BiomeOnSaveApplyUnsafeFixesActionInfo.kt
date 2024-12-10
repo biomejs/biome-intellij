@@ -5,6 +5,7 @@ import com.github.biomejs.intellijbiome.BiomePackage
 import com.intellij.ide.actionsOnSave.ActionOnSaveBackedByOwnConfigurable
 import com.intellij.ide.actionsOnSave.ActionOnSaveComment
 import com.intellij.ide.actionsOnSave.ActionOnSaveContext
+import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 
 class BiomeOnSaveApplyUnsafeFixesActionInfo(actionOnSaveContext: ActionOnSaveContext) :
     ActionOnSaveBackedByOwnConfigurable<BiomeConfigurable>(
@@ -22,21 +23,25 @@ class BiomeOnSaveApplyUnsafeFixesActionInfo(actionOnSaveContext: ActionOnSaveCon
     override fun isActionOnSaveEnabledAccordingToUiState(configurable: BiomeConfigurable) =
         configurable.runUnsafeFixesOnSaveCheckBox.isSelected
 
-    override fun setActionOnSaveEnabled(configurable: BiomeConfigurable, enabled: Boolean) {
+    override fun setActionOnSaveEnabled(configurable: BiomeConfigurable,
+        enabled: Boolean) {
         configurable.runUnsafeFixesOnSaveCheckBox.isSelected = enabled
     }
 
     override fun getCommentAccordingToUiState(configurable: BiomeConfigurable): ActionOnSaveComment? {
         val biomePackage = BiomePackage(project)
-        val version = biomePackage.versionNumber()
+        val version = runWithModalProgressBlocking(project, BiomeBundle.message("biome.version")) {
+            biomePackage.versionNumber()
+        }
         return ActionInfo.defaultComment(version, configurable.runForFilesField.text.trim(), isActionOnSaveEnabled)
     }
 
     override fun getCommentAccordingToStoredState(): ActionOnSaveComment? {
         val biomePackage = BiomePackage(project)
         val settings = BiomeSettings.getInstance(project)
-        val version = biomePackage.versionNumber()
-
+        val version = runWithModalProgressBlocking(project, BiomeBundle.message("biome.version")) {
+            biomePackage.versionNumber()
+        }
         return ActionInfo.defaultComment(version, settings.filePattern, isActionOnSaveEnabled)
     }
 

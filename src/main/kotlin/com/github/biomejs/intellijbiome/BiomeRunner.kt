@@ -1,11 +1,10 @@
 package com.github.biomejs.intellijbiome
 
-import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.openapi.editor.Document
+import com.intellij.openapi.util.NlsContexts
 import com.intellij.openapi.util.NlsSafe
 import com.intellij.openapi.vfs.VirtualFile
 import org.jetbrains.annotations.Nls
-import java.util.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -17,18 +16,16 @@ enum class Feature {
 
 interface BiomeRunner {
     companion object {
-        val DEFAULT_TIMEOUT = 30000.milliseconds
+        val DEFAULT_TIMEOUT: Duration = 30000.milliseconds
     }
 
-    fun check(request: Request, features: EnumSet<Feature>, biomePackage: BiomePackage): Response
-    fun createCommandLine(file: VirtualFile, action: String, args: List<String> = listOf()): GeneralCommandLine
-
+    suspend fun check(request: Request): Response
 
     data class Request(
         val document: Document,
         val virtualFile: VirtualFile,
         val timeout: Duration,
-        val commandDescription: String
+        @NlsContexts.Command val commandDescription: String
     )
 
     sealed class Response {
@@ -42,5 +39,3 @@ interface BiomeRunner {
 
     }
 }
-
-

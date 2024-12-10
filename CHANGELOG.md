@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Bug Fixes
+
+- Fix infinite indexing / intellisense blocked ([#66](https://github.com/biomejs/biome-intellij/issues/66))
+
 ## 1.0.0
 
 ### Bug Fixes

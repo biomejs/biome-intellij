@@ -41,10 +41,10 @@ class BiomeSettings :
             state.configurationMode = value
         }
 
-    var formatOnSave: Boolean
-        get() = isEnabled() && state.formatOnSave
+    var enableLspFormat: Boolean
+        get() = isEnabled() && state.enableLspFormat
         set(value) {
-            state.formatOnSave = value
+            state.enableLspFormat = value
         }
 
     var applySafeFixesOnSave: Boolean
@@ -61,9 +61,7 @@ class BiomeSettings :
 
     fun getEnabledFeatures(): EnumSet<Feature> {
         val features = EnumSet.noneOf(Feature::class.java)
-        if (formatOnSave) {
-            features.add(Feature.Format)
-        }
+
         if (applySafeFixesOnSave) {
             features.add(Feature.SafeFixes)
         }
@@ -77,7 +75,8 @@ class BiomeSettings :
         return configurationMode !== ConfigurationMode.DISABLED
     }
 
-    fun fileSupported(project: Project, file: VirtualFile): Boolean =
+    fun fileSupported(project: Project,
+        file: VirtualFile): Boolean =
         GlobPatternUtil.isFileMatchingGlobPattern(project, filePattern, file)
 
     companion object {

@@ -8,7 +8,6 @@ import com.intellij.ide.actionsOnSave.ActionOnSaveInfoProvider
 class BiomeOnSaveInfoProvider : ActionOnSaveInfoProvider() {
     override fun getActionOnSaveInfos(context: ActionOnSaveContext):
         List<ActionOnSaveInfo> = listOf(
-        BiomeOnSaveFormatActionInfo(context),
         BiomeOnSaveApplySafeFixesActionInfo(context),
         BiomeOnSaveApplyUnsafeFixesActionInfo(context)
     )

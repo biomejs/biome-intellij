@@ -1,89 +1,64 @@
 package com.github.biomejs.intellijbiome
 
 import com.github.biomejs.intellijbiome.extensions.isSuccess
-import com.github.biomejs.intellijbiome.extensions.runBiomeCLI
 import com.github.biomejs.intellijbiome.extensions.runProcessFuture
+import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.execution.ExecutionException
-import com.intellij.execution.configurations.GeneralCommandLine
-import com.intellij.openapi.progress.util.ProgressIndicatorUtils
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.SmartList
-import com.jetbrains.rd.util.EnumSet
-import java.io.File
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.TimeUnit
-import kotlin.time.Duration
+import kotlinx.coroutines.future.await
+import java.util.EnumSet
 
-class BiomeStdinRunner(private val project: Project) : BiomeRunner {
+class BiomeStdinRunner(project: Project) : BiomeRunner {
     private val biomePackage = BiomePackage(project)
+    private val settings = BiomeSettings.getInstance(project)
+    private val features = settings.getEnabledFeatures()
+    private val targetRunBuilder = BiomeTargetRunBuilder(project)
 
-    override fun check(request: BiomeRunner.Request, features: EnumSet<Feature>, biomePackage: BiomePackage): BiomeRunner.Response {
-        val commandLine = createCommandLine(request.virtualFile, "check", getCheckFlags(features, biomePackage))
+    override suspend fun check(request: BiomeRunner.Request): BiomeRunner.Response {
         val file = request.virtualFile
-        val timeout = request.timeout
-        val failureMessage = BiomeBundle.message(
-            "biome.failed.to.run.biome.check.with.features",
-            features.joinToString(prefix = "(", postfix = ")") { it -> it.toString().lowercase() },
-            file.name
-        )
-        val future = startTheFuture(
-            failureMessage, timeout
-        )
-
-        commandLine.runProcessFuture().thenAccept { result ->
-            if (result.processEvent.isSuccess) {
-                future.complete(BiomeRunner.Response.Success(result.processOutput.stdout))
-            } else {
-                future.complete(
-                    BiomeRunner.Response.Failure(
-                        failureMessage,
-                        result.processOutput.stderr, result.processEvent.exitCode
-                    )
-                )
-            }
-        }
-
-        return ProgressIndicatorUtils.awaitWithCheckCanceled(future)
-    }
-
-    override fun createCommandLine(file: VirtualFile, action: String, args: List<String>): GeneralCommandLine {
         val configPath = biomePackage.configPath(file)
         val exePath = biomePackage.binaryPath(configPath, false)
-        val params = SmartList(action, "--stdin-file-path", file.path)
-        params.addAll(args)
+            ?: throw ExecutionException(BiomeBundle.message("biome.language.server.not.found"))
 
+        val params = SmartList("check", "--stdin-file-path", file.path)
         if (!configPath.isNullOrEmpty()) {
             params.add("--config-path")
             params.add(configPath)
         }
+        params.addAll(getCheckFlags(features, biomePackage))
 
-        if (exePath.isNullOrEmpty()) {
-            throw ExecutionException(BiomeBundle.message("biome.language.server.not.found"))
-        }
-
-        return GeneralCommandLine().runBiomeCLI(project, exePath).apply {
-            withInput(File(file.path))
-            withWorkDirectory(configPath)
+        val processHandler = targetRunBuilder.getBuilder(exePath).apply {
+            if (!configPath.isNullOrEmpty()) {
+                setWorkingDirectory(configPath)
+            }
             addParameters(params)
+            setInputFile(file)
+        }.build()
+
+        val result = processHandler.runProcessFuture().await()
+
+        val processOutput = result.processOutput
+        val stdout = processOutput.stdout.trim()
+        val stderr = processOutput.stderr.trim()
+
+        if (result.processEvent.isSuccess) {
+            return BiomeRunner.Response.Success(stdout)
+        } else {
+            if (processOutput.isTimeout) {
+                return BiomeRunner.Response.Failure(BiomeBundle.message("biome.failed.to.run.biome.check.with.features",
+                    features.joinToString(prefix = "(", postfix = ")") { it -> it.toString().lowercase() },
+                    file.name), "Timeout exceeded", null)
+            }
+
+            return BiomeRunner.Response.Failure(BiomeBundle.message("biome.failed.to.run.biome.check.with.features",
+                features.joinToString(prefix = "(", postfix = ")") { it -> it.toString().lowercase() },
+                file.name), stderr, processOutput.exitCode)
         }
     }
 
-    private fun startTheFuture(
-        timeoutMessage: String,
-        timeout: Duration
-    ): CompletableFuture<BiomeRunner.Response> {
-        val future = CompletableFuture<BiomeRunner.Response>()
-            .completeOnTimeout(
-                BiomeRunner.Response.Failure(
-                    timeoutMessage, "Timeout exceeded", null
-                ),
-                timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS
-            )
-        return future
-    }
-
-    fun getCheckFlags(features: EnumSet<Feature>, biomePackage: BiomePackage): List<String> {
+    suspend fun getCheckFlags(features: EnumSet<Feature>,
+        biomePackage: BiomePackage): List<String> {
         val args = SmartList<String>()
 
         if (features.isEmpty()) return args

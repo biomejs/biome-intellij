@@ -5,17 +5,14 @@ import com.intellij.ide.actionsOnSave.impl.ActionsOnSaveFileDocumentManagerListe
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.project.Project
 
-
-class BiomeCheckOnSaveAction :
-    ActionsOnSaveFileDocumentManagerListener.ActionOnSave() {
+class BiomeCheckOnSaveAction : ActionsOnSaveFileDocumentManagerListener.ActionOnSave() {
     override fun isEnabledForProject(project: Project): Boolean {
         val settings = BiomeSettings.getInstance(project)
 
-        return settings.formatOnSave || settings.applySafeFixesOnSave || settings.applyUnsafeFixesOnSave
+        return settings.applySafeFixesOnSave || settings.applyUnsafeFixesOnSave
     }
 
     override fun processDocuments(project: Project, documents: Array<Document>) {
-        val settings = BiomeSettings.getInstance(project)
-        BiomeCheckRunner().run(project, settings.getEnabledFeatures(), documents)
+        BiomeCheckRunner(project).run(documents)
     }
 }

@@ -8,7 +8,6 @@ import com.intellij.lang.javascript.JavaScriptBundle
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationNamesInfo
 import com.intellij.openapi.components.service
-import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.observable.properties.ObservableMutableProperty
 import com.intellij.openapi.observable.util.whenItemSelected
 import com.intellij.openapi.options.BoundSearchableConfigurable
@@ -41,7 +40,7 @@ class BiomeConfigurable(internal val project: Project) :
         HELP_TOPIC,
         CONFIGURABLE_ID
     ) {
-    lateinit var runFormatOnSaveCheckBox: JCheckBox
+    lateinit var enableLspFormatCheckBox: JCheckBox
     lateinit var runSafeFixesOnSaveCheckBox: JCheckBox
     lateinit var runUnsafeFixesOnSaveCheckBox: JCheckBox
 
@@ -117,8 +116,7 @@ class BiomeConfigurable(internal val project: Project) :
 
                 row(BiomeBundle.message("biome.config.path.label")) {
                     textFieldWithBrowseButton(
-                        FileChooserDescriptorFactory.createSingleFileOrFolderDescriptor()
-                            .withTitle(BiomeBundle.message("biome.config.path.label")),
+                        BiomeBundle.message("biome.config.path.label"),
                         project,
                     ) { fileChosen(it) }
                         .bindText(settings::configPath)
@@ -145,11 +143,11 @@ class BiomeConfigurable(internal val project: Project) :
             // Format on save row
             // *********************
             row {
-                runFormatOnSaveCheckBox = checkBox(BiomeBundle.message("biome.run.format.on.save.label"))
+                enableLspFormatCheckBox = checkBox(BiomeBundle.message("biome.enable.lsp.format.label"))
                     .bindSelected(RunOnObservableProperty(
-                        { settings.configurationMode != ConfigurationMode.DISABLED && settings.formatOnSave },
-                        { settings.formatOnSave = it },
-                        { !disabledConfiguration.isSelected && runFormatOnSaveCheckBox.isSelected }
+                        { settings.configurationMode != ConfigurationMode.DISABLED && settings.enableLspFormat },
+                        { settings.enableLspFormat = it },
+                        { !disabledConfiguration.isSelected && enableLspFormatCheckBox.isSelected }
                     ))
                     .component
 
@@ -203,7 +201,8 @@ class BiomeConfigurable(internal val project: Project) :
             try {
                 FileSystems.getDefault().getPathMatcher("glob:" + it.text)
                 null
-            } catch (e: PatternSyntaxException) {
+            }
+            catch (e: PatternSyntaxException) {
                 ValidationInfo(BiomeBundle.message("biome.invalid.pattern"), it)
             }
         }
@@ -214,13 +213,15 @@ class BiomeConfigurable(internal val project: Project) :
 
             if (!selected.exists()) {
                 ValidationInfo(BiomeBundle.message("biome.configuration.file.not.found"), it)
-            } else {
+            }
+            else {
                 if (!selected.name.contains(BiomePackage.configName) && BiomePackage.configValidExtensions.contains(
                         selected.extension
                     )
                 ) {
                     ValidationInfo(BiomeBundle.message("biome.configuration.file.not.found"), it)
-                } else {
+                }
+                else {
                     null
                 }
             }
@@ -232,7 +233,7 @@ class BiomeConfigurable(internal val project: Project) :
 
     private class ConfigurationModeProperty(
         private val settings: BiomeSettings,
-        private val mode: ConfigurationMode
+        private val mode: ConfigurationMode,
     ) : MutableProperty<Boolean> {
         override fun get(): Boolean =
             settings.configurationMode == mode

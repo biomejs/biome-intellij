@@ -1,15 +1,13 @@
 package com.github.biomejs.intellijbiome.lsp
 
-import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.BiomeIcons
 import com.github.biomejs.intellijbiome.BiomePackage
-import com.github.biomejs.intellijbiome.extensions.runBiomeCLI
-import com.github.biomejs.intellijbiome.listeners.BIOME_CONFIG_RESOLVED_TOPIC
+import com.github.biomejs.intellijbiome.BiomeTargetRunBuilder
 import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.github.biomejs.intellijbiome.settings.BiomeConfigurable
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
-import com.intellij.execution.ExecutionException
 import com.intellij.execution.configurations.GeneralCommandLine
+import com.intellij.execution.process.OSProcessHandler
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -18,13 +16,12 @@ import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import com.intellij.util.SmartList
 
-
 @Suppress("UnstableApiUsage")
 class BiomeLspServerSupportProvider : LspServerSupportProvider {
     override fun fileOpened(
         project: Project,
         file: VirtualFile,
-        serverStarter: LspServerSupportProvider.LspServerStarter
+        serverStarter: LspServerSupportProvider.LspServerStarter,
     ) {
         val currentConfigPath = project.service<BiomeServerService>().getCurrentConfigPath()
         if (currentConfigPath != null) {
@@ -38,46 +35,39 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, executable, configPath))
     }
 
-    override fun createLspServerWidgetItem(lspServer: LspServer, currentFile: VirtualFile?) = LspServerWidgetItem(
-        lspServer, currentFile,
-        BiomeIcons.BiomeIcon, BiomeConfigurable::class.java
-    )
+    override fun createLspServerWidgetItem(lspServer: LspServer,
+        currentFile: VirtualFile?) =
+        LspServerWidgetItem(lspServer, currentFile, BiomeIcons.BiomeIcon, BiomeConfigurable::class.java)
 }
 
 @Suppress("UnstableApiUsage")
-private class BiomeLspServerDescriptor(project: Project, val executable: String, val configPath: String?) :
-    ProjectWideLspServerDescriptor(project, "Biome") {
-    private val biomePackage = BiomePackage(project)
+private class BiomeLspServerDescriptor(project: Project,
+    val executable: String,
+    val configPath: String?) : ProjectWideLspServerDescriptor(
+    project, "Biome") {
+    private val targetRunBuilder = BiomeTargetRunBuilder(project)
 
     override fun isSupportedFile(file: VirtualFile): Boolean {
-        val settings = BiomeSettings.getInstance(project)
-        if (!settings.isEnabled()) {
-            return false
-        }
-
         return BiomeSettings.getInstance(project).fileSupported(project, file)
     }
 
     override fun createCommandLine(): GeneralCommandLine {
-        val params = SmartList("lsp-proxy")
+        throw RuntimeException("Not expected to be called because startServerProcess() is overridden")
+    }
 
+    override fun startServerProcess(): OSProcessHandler {
+        val params = SmartList("lsp-proxy")
         if (!configPath.isNullOrEmpty()) {
             params.add("--config-path")
             params.add(configPath)
         }
 
-        if (executable.isEmpty()) {
-            throw ExecutionException(BiomeBundle.message("biome.language.server.not.found"))
-        }
-
-        val version = biomePackage.versionNumber()
-
-        version?.let { project.messageBus.syncPublisher(BIOME_CONFIG_RESOLVED_TOPIC).resolved(it) }
-
-        return GeneralCommandLine().runBiomeCLI(project, executable).apply {
+        return targetRunBuilder.getBuilder(executable).apply {
+            if (!configPath.isNullOrEmpty()) {
+                setWorkingDirectory(configPath)
+            }
             addParameters(params)
-            withWorkDirectory(configPath)
-        }
+        }.build()
     }
 
     override val lspGoToDefinitionSupport = false
@@ -87,9 +77,10 @@ private class BiomeLspServerDescriptor(project: Project, val executable: String,
         override fun shouldFormatThisFileExclusivelyByServer(
             file: VirtualFile,
             ideCanFormatThisFileItself: Boolean,
-            serverExplicitlyWantsToFormatThisFile: Boolean
+            serverExplicitlyWantsToFormatThisFile: Boolean,
         ): Boolean {
-            return BiomeSettings.getInstance(project).fileSupported(project, file)
+            val settings = BiomeSettings.getInstance(project)
+            return settings.enableLspFormat && BiomeSettings.getInstance(project).fileSupported(project, file)
         }
     }
 }
