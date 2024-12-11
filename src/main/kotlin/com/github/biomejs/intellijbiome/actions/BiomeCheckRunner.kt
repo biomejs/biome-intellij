@@ -79,10 +79,11 @@ class BiomeCheckRunner(
             is BiomeRunner.Response.Success -> {
                 val text = response.code
                 val lineSeparator = StringUtil.detectSeparators(text)
-
+                // internally we keep newlines as \n
+                val normalizedText = StringUtil.convertLineSeparators(text)
                 writeCommandAction(project, request.commandDescription) {
-                    if (!StringUtil.equals(request.document.text, text)) {
-                        request.document.setText(text)
+                    if (!StringUtil.equals(request.document.charsSequence, normalizedText)) {
+                        request.document.setText(normalizedText)
                     }
 
                     setDetectedLineSeparator(project, request.virtualFile, lineSeparator)
