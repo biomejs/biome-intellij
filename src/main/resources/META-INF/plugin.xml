@@ -67,19 +67,4 @@
     <listener class="com.github.biomejs.intellijbiome.listeners.BiomeConfigListener"
               topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
   </projectListeners>
-  <actions>
-    <group
-      id="com.github.biomejs.intellijbiome.actions-group"
-      text="Biome"
-      icon="/icons/pluginIcon.svg"
-      popup="true"
-    >
-      <add-to-group group-id="ToolsMenu"/>
-      <action
-        id="com.github.biomejs.intellijbiome.restart-lsp-action"
-        class="com.github.biomejs.intellijbiome.actions.RestartBiomeServerAction"
-        text="Restart LSP Server"
-      />
-    </group>
-  </actions>
 </idea-plugin>
