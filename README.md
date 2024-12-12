@@ -53,6 +53,13 @@ There are several reasons to behave like this:
 
 This setting overrides the Biome binary used by the plugin.
 
+#### Enabling Code Formatting
+
+To enable formatting, open Biome settings and enable **LSP-based Code Formatting**. This feature allows you to format code using the designated hotkey (<kbd>⌥⇧⌘+L</kbd> or <kbd>Ctrl+Alt+L</kbd>).
+
+If you want to format code on save, navigate to **Actions on Save** settings and enable **Reformat Code**, specifying the desired file types.
+
+
 ### Supported IDEs
 
 This plugin is currently supported in the following IDEs:
