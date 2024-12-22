@@ -98,8 +98,11 @@ class BiomePackage(private val project: Project) {
 
     fun compareVersion(version1: String,
         version2: String): Int {
-        val parts1 = version1.split(".").map { it.toInt() }
-        val parts2 = version2.split(".").map { it.toInt() }
+        // standardize nightly versions like 1.9.5-nightly.81fdedb to 1.9.5
+        val cleanVersion1 = version1.split("-").first()
+        val cleanVersion2 = version2.split("-").first()
+        val parts1 = cleanVersion1.split(".").map { it.toInt() }
+        val parts2 = cleanVersion2.split(".").map { it.toInt() }
 
         val maxLength = maxOf(parts1.size, parts2.size)
 
