@@ -17,6 +17,7 @@ class BiomeSettingsState : BaseState() {
     var executablePath by string()
     var configPath by string()
     var filePattern by string(DEFAULT_FILE_PATTERN)
+    var formatOnSave by property(false)
     var enableLspFormat by property(false)
     var applySafeFixesOnSave by property(false)
     var applyUnsafeFixesOnSave by property(false)
