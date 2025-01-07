@@ -47,6 +47,12 @@ class BiomeSettings :
             state.enableLspFormat = value
         }
 
+    var formatOnSave: Boolean
+        get() = isEnabled() && state.formatOnSave
+        set(value) {
+            state.formatOnSave = value
+        }
+
     var applySafeFixesOnSave: Boolean
         get() = isEnabled() && state.applySafeFixesOnSave
         set(value) {
@@ -61,7 +67,9 @@ class BiomeSettings :
 
     fun getEnabledFeatures(): EnumSet<Feature> {
         val features = EnumSet.noneOf(Feature::class.java)
-
+        if (formatOnSave) {
+            features.add(Feature.Format)
+        }
         if (applySafeFixesOnSave) {
             features.add(Feature.SafeFixes)
         }

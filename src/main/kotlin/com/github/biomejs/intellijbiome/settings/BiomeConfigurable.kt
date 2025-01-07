@@ -40,6 +40,7 @@ class BiomeConfigurable(internal val project: Project) :
         HELP_TOPIC,
         CONFIGURABLE_ID
     ) {
+    lateinit var runFormatOnSaveCheckBox: JCheckBox
     lateinit var enableLspFormatCheckBox: JCheckBox
     lateinit var runSafeFixesOnSaveCheckBox: JCheckBox
     lateinit var runUnsafeFixesOnSaveCheckBox: JCheckBox
@@ -140,7 +141,7 @@ class BiomeConfigurable(internal val project: Project) :
             }.enabledIf(!disabledConfiguration.selected)
 
             // *********************
-            // Format on save row
+            // LSP row
             // *********************
             row {
                 enableLspFormatCheckBox = checkBox(BiomeBundle.message("biome.enable.lsp.format.label"))
@@ -148,6 +149,26 @@ class BiomeConfigurable(internal val project: Project) :
                         { settings.configurationMode != ConfigurationMode.DISABLED && settings.enableLspFormat },
                         { settings.enableLspFormat = it },
                         { !disabledConfiguration.isSelected && enableLspFormatCheckBox.isSelected }
+                    ))
+                    .component
+
+                val helpLabel = ContextHelpLabel.create(BiomeBundle.message("biome.enable.lsp.format.help.label"))
+                helpLabel.border = JBUI.Borders.emptyLeft(UIUtil.DEFAULT_HGAP)
+                cell(helpLabel)
+
+                val link = ActionsOnSaveConfigurable.createGoToActionsOnSavePageLink()
+                cell(link)
+            }.enabledIf(!disabledConfiguration.selected)
+
+            // *********************
+            // Format on save row
+            // *********************
+            row {
+                runFormatOnSaveCheckBox = checkBox(BiomeBundle.message("biome.run.format.on.save.label"))
+                    .bindSelected(RunOnObservableProperty(
+                        { settings.configurationMode != ConfigurationMode.DISABLED && settings.formatOnSave },
+                        { settings.formatOnSave = it },
+                        { !disabledConfiguration.isSelected && runFormatOnSaveCheckBox.isSelected }
                     ))
                     .component
 

@@ -9,7 +9,7 @@ class BiomeCheckOnSaveAction : ActionsOnSaveFileDocumentManagerListener.ActionOn
     override fun isEnabledForProject(project: Project): Boolean {
         val settings = BiomeSettings.getInstance(project)
 
-        return settings.applySafeFixesOnSave || settings.applyUnsafeFixesOnSave
+        return settings.applySafeFixesOnSave || settings.applyUnsafeFixesOnSave || settings.formatOnSave
     }
 
     override fun processDocuments(project: Project, documents: Array<Document>) {
