@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### Bug Fixes
 
+- Revert "format on save" ([#117](https://github.com/biomejs/biome-intellij/pull/117))
+
+## 1.5.3
+
+### Bug Fixes
+
 - Infinite indexing / intellisense blocked ([#102](https://github.com/biomejs/biome-intellij/pull/102))
 - Resolve plugin crash when using nightly biome releases ([#112](https://github.com/biomejs/biome-intellij/pull/112))
 
