@@ -36,10 +36,10 @@ class BiomeStdinRunner(project: Project) : BiomeRunner {
             setInputFile(file)
         }.build()
 
-        val result = processHandler.runProcessFuture().await()
+        val result = runProcessFuture(processHandler).await()
 
         val processOutput = result.processOutput
-        val stdout = processOutput.stdout.trim()
+        val stdout = processOutput.stdout
         val stderr = processOutput.stderr.trim()
 
         if (result.processEvent.isSuccess) {

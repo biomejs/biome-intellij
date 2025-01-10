@@ -71,9 +71,9 @@ class BiomePackage(private val project: Project) {
         val processHandler =
             BiomeTargetRunBuilder(project).getBuilder(binaryPath).addParameters(listOf("--version")).build()
         return runCatching {
-            val result = processHandler.runProcessFuture().await()
+            val result = runProcessFuture(processHandler).await()
             val processOutput = result.processOutput
-            val stdout = processOutput.stdout.trim()
+            val stdout = processOutput.stdout
             val matchResult = versionRegex.find(stdout)
             return matchResult?.value
         }.getOrNull()

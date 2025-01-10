@@ -10,16 +10,16 @@ class ProcessResult(val processEvent: ProcessEvent, val processOutput: ProcessOu
 
 val ProcessEvent.isSuccess: Boolean get() = exitCode == 0
 
-fun OSProcessHandler.runProcessFuture(): CompletableFuture<ProcessResult> {
+fun runProcessFuture(handler: OSProcessHandler): CompletableFuture<ProcessResult> {
     val future = CompletableFuture<ProcessResult>()
 
-    this.addProcessListener(object : CapturingProcessAdapter() {
+    handler.addProcessListener(object : CapturingProcessAdapter() {
         override fun processTerminated(event: ProcessEvent) {
             future.complete(ProcessResult(event, output))
         }
     })
 
-    this.startNotify()
+    handler.startNotify()
 
     return future
 }
