@@ -47,7 +47,7 @@ class BiomeConfigurable(internal val project: Project) :
 
     lateinit var runForFilesField: JBTextField
 
-    private lateinit var disabledConfiguration: JRadioButton
+    lateinit var disabledConfiguration: JRadioButton
     private lateinit var automaticConfiguration: JRadioButton
     private lateinit var manualConfiguration: JRadioButton
     override fun createPanel(): DialogPanel {
