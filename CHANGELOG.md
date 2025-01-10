@@ -2,7 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## 1.5.3
+## 1.5.5
+
+### Bug Fixes
+
+- Keep empty end line ([#120](https://github.com/biomejs/biome-intellij/pull/120))
+
+### Features
+
+- Add support for Biome config icons and improve save actions ([#119](https://github.com/biomejs/biome-intellij/pull/119))
+
+
+## 1.5.4
 
 ### Bug Fixes
 
