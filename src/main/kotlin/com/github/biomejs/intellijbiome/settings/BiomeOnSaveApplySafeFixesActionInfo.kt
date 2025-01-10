@@ -17,6 +17,12 @@ class BiomeOnSaveApplySafeFixesActionInfo(actionOnSaveContext: ActionOnSaveConte
     override fun getActionOnSaveName() =
         BiomeBundle.message("biome.run.safe.fixes.on.save.checkbox.on.actions.on.save.page")
 
+    override fun isApplicableAccordingToStoredState(): Boolean =
+        BiomeSettings.getInstance(project).configurationMode != ConfigurationMode.DISABLED
+
+    override fun isApplicableAccordingToUiState(configurable: BiomeConfigurable): Boolean =
+        !configurable.disabledConfiguration.isSelected
+
     override fun isActionOnSaveEnabledAccordingToStoredState() = BiomeSettings.getInstance(project).applySafeFixesOnSave
 
     override fun isActionOnSaveEnabledAccordingToUiState(configurable: BiomeConfigurable) =
@@ -27,6 +33,8 @@ class BiomeOnSaveApplySafeFixesActionInfo(actionOnSaveContext: ActionOnSaveConte
     }
 
     override fun getCommentAccordingToUiState(configurable: BiomeConfigurable): ActionOnSaveComment? {
+        if (!isSaveActionApplicable) return ActionOnSaveComment.info(BiomeBundle.message("biome.on.save.comment.disabled"))
+
         val biomePackage = BiomePackage(project)
         val version = runWithModalProgressBlocking(project, BiomeBundle.message("biome.version")) {
             biomePackage.versionNumber()
@@ -35,6 +43,8 @@ class BiomeOnSaveApplySafeFixesActionInfo(actionOnSaveContext: ActionOnSaveConte
     }
 
     override fun getCommentAccordingToStoredState(): ActionOnSaveComment? {
+        if (!isSaveActionApplicable) return ActionOnSaveComment.info(BiomeBundle.message("biome.on.save.comment.disabled"))
+
         val biomePackage = BiomePackage(project)
         val settings = BiomeSettings.getInstance(project)
         val version = runWithModalProgressBlocking(project, BiomeBundle.message("biome.version")) {

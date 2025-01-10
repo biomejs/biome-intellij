@@ -49,6 +49,7 @@
     <notificationGroup id="Biome" displayType="BALLOON"/>
     <platform.lsp.serverSupportProvider
       implementation="com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider"/>
+    <iconProvider implementation="com.github.biomejs.intellijbiome.BiomeConfigIconProvider"/>
     <projectConfigurable id="Settings.Biome"
                          bundle="messages.BiomeBundle"
                          groupId="language"
