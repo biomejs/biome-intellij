@@ -12,7 +12,8 @@ fun RemoteRobot.statusBar(function: StatusbarFrame.() -> Unit) {
 
 @FixtureName("Statusbar frame")
 @DefaultXpath("IdeStatusBarImpl type", "//div[@class='IdeStatusBarImpl']")
-class StatusbarFrame(remoteRobot: RemoteRobot, remoteComponent: RemoteComponent) :
+class StatusbarFrame(remoteRobot: RemoteRobot,
+    remoteComponent: RemoteComponent) :
     CommonContainerFixture(remoteRobot, remoteComponent) {
 
     val statusBarPanel

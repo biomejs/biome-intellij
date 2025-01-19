@@ -63,7 +63,28 @@
     <actionOnSave id="BiomeCheckOnSaveAction"
                   implementation="com.github.biomejs.intellijbiome.actions.BiomeCheckOnSaveAction"
                   order="first, before FormatOnSaveAction"/>
+    />
   </extensions>
+  <actions>
+    <action
+      id="BiomeSortImportAction"
+      text="Sort Import with Biome"
+      description="Sort import with biome"
+      class="com.github.biomejs.intellijbiome.actions.BiomeSortImportAction"
+    >
+      <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+      <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+    </action>
+    <action
+      id="BiomeApplySafeFixesAction"
+      text="Apply Biome Quick Fixes"
+      description="Apply biome quick fixes"
+      class="com.github.biomejs.intellijbiome.actions.BiomeApplySafeFixesAction"
+    >
+      <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+      <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+    </action>
+  </actions>
   <projectListeners>
     <listener class="com.github.biomejs.intellijbiome.listeners.BiomeConfigListener"
               topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>

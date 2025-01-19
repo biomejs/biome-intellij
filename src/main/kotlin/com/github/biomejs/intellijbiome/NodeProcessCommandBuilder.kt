@@ -4,9 +4,9 @@ import com.intellij.execution.ExecutionException
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.target.value.TargetValue
 import com.intellij.javascript.nodejs.execution.NodeTargetRun
-import com.intellij.openapi.project.Project
 import com.intellij.javascript.nodejs.execution.NodeTargetRunOptions.Companion.of
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreter
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import java.nio.charset.Charset
 

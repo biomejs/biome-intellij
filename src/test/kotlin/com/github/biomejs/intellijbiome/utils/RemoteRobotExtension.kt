@@ -31,18 +31,20 @@ class RemoteRobotExtension : AfterTestExecutionCallback, ParameterResolver {
     }
     private val client = OkHttpClient()
 
-    override fun supportsParameter(parameterContext: ParameterContext?, extensionContext: ExtensionContext?): Boolean {
-        return parameterContext?.parameter?.type?.equals(RemoteRobot::class.java) ?: false
+    override fun supportsParameter(parameterContext: ParameterContext?,
+        extensionContext: ExtensionContext?): Boolean {
+        return parameterContext?.parameter?.type?.equals(RemoteRobot::class.java) == true
     }
 
-    override fun resolveParameter(parameterContext: ParameterContext?, extensionContext: ExtensionContext?): Any {
+    override fun resolveParameter(parameterContext: ParameterContext?,
+        extensionContext: ExtensionContext?): Any {
         return remoteRobot
     }
 
     override fun afterTestExecution(context: ExtensionContext?) {
         val testMethod: Method = context?.requiredTestMethod ?: throw IllegalStateException("test method is null")
         val testMethodName = testMethod.name
-        val testFailed: Boolean = context.executionException?.isPresent ?: false
+        val testFailed: Boolean = context.executionException?.isPresent == true
         if (testFailed) {
 //            saveScreenshot(testMethodName)
             saveIdeaFrames(testMethodName)
@@ -63,7 +65,9 @@ class RemoteRobotExtension : AfterTestExecutionCallback, ParameterResolver {
         println("Hierarchy snapshot: ${hierarchySnapshot.absolutePath}")
     }
 
-    private fun saveFile(url: String, folder: String, name: String): File {
+    private fun saveFile(url: String,
+        folder: String,
+        name: String): File {
         val response = client.newCall(Request.Builder().url(url).build()).execute()
         return File(folder).apply {
             mkdirs()

@@ -11,13 +11,15 @@ import com.intellij.execution.process.OSProcessHandler
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.platform.lsp.api.*
+import com.intellij.platform.lsp.api.LspServer
+import com.intellij.platform.lsp.api.LspServerSupportProvider
+import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import com.intellij.util.SmartList
 
-@Suppress("UnstableApiUsage")
-class BiomeLspServerSupportProvider : LspServerSupportProvider {
+
+@Suppress("UnstableApiUsage") class BiomeLspServerSupportProvider : LspServerSupportProvider {
     override fun fileOpened(
         project: Project,
         file: VirtualFile,
@@ -40,15 +42,13 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         LspServerWidgetItem(lspServer, currentFile, BiomeIcons.BiomeIcon, BiomeConfigurable::class.java)
 }
 
-@Suppress("UnstableApiUsage")
-private class BiomeLspServerDescriptor(project: Project,
+@Suppress("UnstableApiUsage") private class BiomeLspServerDescriptor(project: Project,
     val executable: String,
-    val configPath: String?) : ProjectWideLspServerDescriptor(
-    project, "Biome") {
+    val configPath: String?) : ProjectWideLspServerDescriptor(project, "Biome") {
     private val targetRunBuilder = BiomeTargetRunBuilder(project)
 
     override fun isSupportedFile(file: VirtualFile): Boolean {
-        return BiomeSettings.getInstance(project).fileSupported(project, file)
+        return BiomeSettings.getInstance(project).fileSupported(file)
     }
 
     override fun createCommandLine(): GeneralCommandLine {
@@ -80,7 +80,7 @@ private class BiomeLspServerDescriptor(project: Project,
             serverExplicitlyWantsToFormatThisFile: Boolean,
         ): Boolean {
             val settings = BiomeSettings.getInstance(project)
-            return settings.enableLspFormat && BiomeSettings.getInstance(project).fileSupported(project, file)
+            return settings.enableLspFormat
         }
     }
 }

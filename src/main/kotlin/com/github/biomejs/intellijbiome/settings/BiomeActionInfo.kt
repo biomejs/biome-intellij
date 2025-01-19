@@ -8,7 +8,6 @@ class ActionInfo {
     companion object {
         fun defaultComment(
             version: String?,
-            filePattern: String,
             isActionOnSaveEnabled: Boolean
         ): ActionOnSaveComment? {
             if (version == null) {
@@ -22,11 +21,11 @@ class ActionInfo {
                 BiomeBundle.message(
                     "biome.run.on.save.version.and.files.pattern",
                     shorten(version, 15),
-                    shorten(filePattern, 40)
                 )
             )
         }
 
-        fun shorten(s: String, max: Int) = StringUtil.shortenTextWithEllipsis(s, max, 0, true)
+        fun shorten(s: String,
+            max: Int) = StringUtil.shortenTextWithEllipsis(s, max, 0, true)
     }
 }

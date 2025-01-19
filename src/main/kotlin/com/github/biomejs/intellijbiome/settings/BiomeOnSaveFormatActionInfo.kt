@@ -15,7 +15,7 @@ class BiomeOnSaveFormatActionInfo(actionOnSaveContext: ActionOnSaveContext) :
     ) {
 
     override fun getActionOnSaveName() =
-        BiomeBundle.message("biome.run.format.on.save.checkbox.on.actions.on.save.page")
+        BiomeBundle.message("biome.format.on.save.checkbox.on.actions.on.save.page")
 
     override fun isApplicableAccordingToStoredState(): Boolean =
         BiomeSettings.getInstance(project).configurationMode != ConfigurationMode.DISABLED
@@ -28,31 +28,29 @@ class BiomeOnSaveFormatActionInfo(actionOnSaveContext: ActionOnSaveContext) :
     override fun isActionOnSaveEnabledAccordingToUiState(configurable: BiomeConfigurable) =
         configurable.runFormatOnSaveCheckBox.isSelected
 
-    override fun setActionOnSaveEnabled(configurable: BiomeConfigurable, enabled: Boolean) {
+    override fun setActionOnSaveEnabled(configurable: BiomeConfigurable,
+        enabled: Boolean) {
         configurable.runFormatOnSaveCheckBox.isSelected = enabled
     }
 
     override fun getActionLinks() = listOf(createGoToPageInSettingsLink(BiomeConfigurable.CONFIGURABLE_ID))
 
     override fun getCommentAccordingToUiState(configurable: BiomeConfigurable): ActionOnSaveComment? {
-        if (!isSaveActionApplicable) return ActionOnSaveComment.info(BiomeBundle.message("biome.on.save.comment.disabled"))
-
-        val biomePackage = BiomePackage(project)
-        val version = runWithModalProgressBlocking(project, BiomeBundle.message("biome.version")) {
-            biomePackage.versionNumber()
-        }
-        return ActionInfo.defaultComment(version, configurable.runForFilesField.text.trim(), isActionOnSaveEnabled)
+        return comment()
     }
 
     override fun getCommentAccordingToStoredState(): ActionOnSaveComment? {
+        return comment()
+    }
+
+    private fun comment(): ActionOnSaveComment? {
         if (!isSaveActionApplicable) return ActionOnSaveComment.info(BiomeBundle.message("biome.on.save.comment.disabled"))
 
         val biomePackage = BiomePackage(project)
-        val settings = BiomeSettings.getInstance(project)
         val version = runWithModalProgressBlocking(project, BiomeBundle.message("biome.version")) {
             biomePackage.versionNumber()
         }
 
-        return ActionInfo.defaultComment(version, settings.filePattern, isActionOnSaveEnabled)
+        return ActionInfo.defaultComment(version, isActionOnSaveEnabled)
     }
 }

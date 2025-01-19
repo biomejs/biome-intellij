@@ -9,7 +9,8 @@ import com.intellij.remoterobot.fixtures.FixtureName
 import com.intellij.remoterobot.search.locators.byXpath
 
 @JvmOverloads
-fun ContainerFixture.editor(title: String, function: Editor.() -> Unit = {}): Editor {
+fun ContainerFixture.editor(title: String,
+    function: Editor.() -> Unit = {}): Editor {
     find<ComponentFixture>(
         byXpath("//div[@class='EditorTabs']//div[@accessiblename='$title' and @class='SimpleColoredComponent']"),
     ).click()

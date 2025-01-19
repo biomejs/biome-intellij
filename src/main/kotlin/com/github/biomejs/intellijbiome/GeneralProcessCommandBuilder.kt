@@ -11,7 +11,8 @@ import java.nio.charset.Charset
 import kotlin.io.path.Path
 
 class GeneralProcessCommandBuilder : ProcessCommandBuilder {
-    private val command = GeneralCommandLine().withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
+    private val command =
+        GeneralCommandLine().withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
     private var executable: String? = null
     private var workingDir: String? = null
     private var inputFile: VirtualFile? = null
