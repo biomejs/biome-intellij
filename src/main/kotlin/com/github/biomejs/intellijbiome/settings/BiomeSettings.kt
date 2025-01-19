@@ -1,7 +1,7 @@
 package com.github.biomejs.intellijbiome.settings
 
-import com.github.biomejs.intellijbiome.Feature
-import com.intellij.lang.javascript.linter.GlobPatternUtil
+import com.github.biomejs.intellijbiome.services.BiomeServerService.Feature
+import com.github.biomejs.intellijbiome.settings.BiomeSettingsState.Companion.DEFAULT_EXTENSION_LIST
 import com.intellij.openapi.components.*
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -29,10 +29,11 @@ class BiomeSettings :
             state.configPath = value
         }
 
-    var filePattern: String
-        get() = state.filePattern ?: BiomeSettingsState.DEFAULT_FILE_PATTERN
+    var supportedExtensions: MutableList<String>
+        get() = state.supportedExtensions.takeIf { it.isNotEmpty() } ?: DEFAULT_EXTENSION_LIST.toMutableList()
         set(value) {
-            state.filePattern = value
+            state.supportedExtensions.clear()
+            state.supportedExtensions.addAll(value)
         }
 
     var configurationMode: ConfigurationMode
@@ -53,16 +54,16 @@ class BiomeSettings :
             state.formatOnSave = value
         }
 
+    var sortImportOnSave: Boolean
+        get() = isEnabled() && state.sortImportOnSave
+        set(value) {
+            state.sortImportOnSave = value
+        }
+
     var applySafeFixesOnSave: Boolean
         get() = isEnabled() && state.applySafeFixesOnSave
         set(value) {
             state.applySafeFixesOnSave = value
-        }
-
-    var applyUnsafeFixesOnSave: Boolean
-        get() = isEnabled() && state.applyUnsafeFixesOnSave
-        set(value) {
-            state.applyUnsafeFixesOnSave = value
         }
 
     fun getEnabledFeatures(): EnumSet<Feature> {
@@ -71,10 +72,10 @@ class BiomeSettings :
             features.add(Feature.Format)
         }
         if (applySafeFixesOnSave) {
-            features.add(Feature.SafeFixes)
+            features.add(Feature.ApplySafeFixes)
         }
-        if (applyUnsafeFixesOnSave) {
-            features.add(Feature.UnsafeFixes)
+        if (sortImportOnSave) {
+            features.add(Feature.SortImports)
         }
         return features
     }
@@ -83,9 +84,14 @@ class BiomeSettings :
         return configurationMode !== ConfigurationMode.DISABLED
     }
 
-    fun fileSupported(project: Project,
-        file: VirtualFile): Boolean =
-        GlobPatternUtil.isFileMatchingGlobPattern(project, filePattern, file)
+    fun fileSupported(file: VirtualFile): Boolean {
+        val fileExtension = file.extension
+        return if (fileExtension != null) {
+            supportedExtensions.contains(".$fileExtension")
+        } else {
+            false
+        }
+    }
 
     companion object {
         @JvmStatic

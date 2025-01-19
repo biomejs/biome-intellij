@@ -16,14 +16,17 @@ enum class ConfigurationMode {
 class BiomeSettingsState : BaseState() {
     var executablePath by string()
     var configPath by string()
-    var filePattern by string(DEFAULT_FILE_PATTERN)
     var formatOnSave by property(false)
     var enableLspFormat by property(false)
     var applySafeFixesOnSave by property(false)
-    var applyUnsafeFixesOnSave by property(false)
+    var sortImportOnSave by property(false)
     var configurationMode by enum(ConfigurationMode.AUTOMATIC)
+    var supportedExtensions by list<String>()
 
     companion object {
-        const val DEFAULT_FILE_PATTERN = "**/*.{js,mjs,cjs,ts,jsx,tsx,cts,json,jsonc,vue,svelte,astro,css}"
+        val DEFAULT_EXTENSION_LIST = listOf(
+            ".astro", ".css", ".gql", ".graphql", ".js", ".mjs", ".cjs", ".jsx",
+            ".json", ".jsonc", ".svelte", ".html", ".ts", ".mts", ".cts", ".tsx", ".vue"
+        )
     }
 }

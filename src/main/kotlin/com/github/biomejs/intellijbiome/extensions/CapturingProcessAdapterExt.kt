@@ -6,16 +6,15 @@ import com.intellij.execution.process.ProcessEvent
 import com.intellij.execution.process.ProcessOutput
 import java.util.concurrent.CompletableFuture
 
-class ProcessResult(val processEvent: ProcessEvent, val processOutput: ProcessOutput)
+class ProcessResult( val processOutput: ProcessOutput)
 
-val ProcessEvent.isSuccess: Boolean get() = exitCode == 0
 
 fun runProcessFuture(handler: OSProcessHandler): CompletableFuture<ProcessResult> {
     val future = CompletableFuture<ProcessResult>()
 
     handler.addProcessListener(object : CapturingProcessAdapter() {
         override fun processTerminated(event: ProcessEvent) {
-            future.complete(ProcessResult(event, output))
+            future.complete(ProcessResult(output))
         }
     })
 

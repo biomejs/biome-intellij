@@ -16,7 +16,8 @@ fun RemoteRobot.idea(function: IdeaFrame.() -> Unit) {
 
 @FixtureName("Idea frame")
 @DefaultXpath("IdeFrameImpl type", "//div[@class='IdeFrameImpl']")
-class IdeaFrame(remoteRobot: RemoteRobot, remoteComponent: RemoteComponent) :
+class IdeaFrame(remoteRobot: RemoteRobot,
+    remoteComponent: RemoteComponent) :
     CommonContainerFixture(remoteRobot, remoteComponent) {
     val menuBar: JMenuBarFixture
         get() = step("Menu...") {
@@ -24,7 +25,8 @@ class IdeaFrame(remoteRobot: RemoteRobot, remoteComponent: RemoteComponent) :
         }
 
     @JvmOverloads
-    fun dumbAware(timeout: Duration = Duration.ofMinutes(5), function: () -> Unit) {
+    fun dumbAware(timeout: Duration = Duration.ofMinutes(5),
+        function: () -> Unit) {
         step("Wait for smart mode") {
             waitFor(duration = timeout, interval = Duration.ofSeconds(5)) {
                 runCatching { isDumbMode().not() }.getOrDefault(false)
