@@ -5,6 +5,7 @@ import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.util.NodePackage
+import com.intellij.javascript.nodejs.util.NodePackageDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import kotlinx.coroutines.future.await
@@ -14,11 +15,31 @@ import java.nio.file.Paths
 private val versionRegex: Regex = Regex("\\d{1,2}\\.\\d{1,2}\\.\\d{1,3}")
 
 class BiomePackage(private val project: Project) {
-    private val interpreter = NodeJsInterpreterManager.getInstance(project).interpreter
-    private val nodePackage: NodePackage?
-        get() {
-            return NodePackage.findDefaultPackage(project, "@biomejs/biome", interpreter)
+    private val packageName = "@biomejs/biome"
+    private val packageDescription = NodePackageDescriptor(packageName)
+
+    fun getPackage(virtualFile: VirtualFile?): NodePackage? {
+        if (virtualFile != null) {
+            val available = packageDescription.listAvailable(
+                project,
+                NodeJsInterpreterManager.getInstance(project).interpreter,
+                virtualFile,
+                false,
+                true
+            )
+            if (available.isNotEmpty()) {
+                return available[0]
+            }
         }
+
+        var pkg = packageDescription.findUnambiguousDependencyPackage(project) ?: NodePackage.findDefaultPackage(
+            project,
+            packageName,
+            NodeJsInterpreterManager.getInstance(project).interpreter
+        )
+
+        return pkg
+    }
 
     fun configPath(file: VirtualFile): String? {
         val settings = BiomeSettings.getInstance(project)
@@ -35,26 +56,29 @@ class BiomePackage(private val project: Project) {
         val configurationMode = settings.configurationMode
         return when (configurationMode) {
             ConfigurationMode.DISABLED -> null
-            ConfigurationMode.AUTOMATIC -> nodePackage?.getVersion(project)?.toString()
-            ConfigurationMode.MANUAL -> getBinaryVersion(binaryPath(null, true))
+            ConfigurationMode.AUTOMATIC -> getPackage(null)?.version?.toString()
+            ConfigurationMode.MANUAL -> getBinaryVersion(settings.executablePath)
         }
     }
 
-    fun binaryPath(configPath: String?,
-        showVersion: Boolean): String? {
+    fun binaryPath(
+        configPath: String?,
+        virtualFile: VirtualFile,
+        showVersion: Boolean,
+    ): String? {
         val settings = BiomeSettings.getInstance(project)
         val configurationMode = settings.configurationMode
         return when (configurationMode) {
             ConfigurationMode.DISABLED -> null // don't try to find the executable path if the configuration file does not exist.
             // This will prevent start LSP and formatting in case if biome is not used in the project.
-            ConfigurationMode.AUTOMATIC -> if (configPath != null || showVersion) findBiomeExecutable() else null // if configuration mode is manual, return the executable path if it is not empty string.
+            ConfigurationMode.AUTOMATIC -> if (configPath != null || showVersion) findBiomeExecutable(virtualFile) else null // if configuration mode is manual, return the executable path if it is not empty string.
             // Otherwise, try to find the executable path.
-            ConfigurationMode.MANUAL -> if (settings.executablePath == "") findBiomeExecutable() else settings.executablePath
+            ConfigurationMode.MANUAL -> settings.executablePath
         }
     }
 
-    private fun findBiomeExecutable(): String? {
-        val path = nodePackage?.getAbsolutePackagePathToRequire(project)
+    private fun findBiomeExecutable(virtualFile: VirtualFile?): String? {
+        val path = getPackage(virtualFile)?.getAbsolutePackagePathToRequire(project)
         if (path != null) {
             return Paths.get(path, "bin/biome").toString()
         }
@@ -95,28 +119,4 @@ class BiomePackage(private val project: Project) {
         }
         return null
     }
-
-    fun compareVersion(version1: String,
-        version2: String): Int {
-        // standardize nightly versions like 1.9.5-nightly.81fdedb to 1.9.5
-        val cleanVersion1 = version1.split("-").first()
-        val cleanVersion2 = version2.split("-").first()
-        val parts1 = cleanVersion1.split(".").map { it.toInt() }
-        val parts2 = cleanVersion2.split(".").map { it.toInt() }
-
-        val maxLength = maxOf(parts1.size, parts2.size)
-
-        for (i in 0 until maxLength) {
-            val v1 = if (i < parts1.size) parts1[i] else 0
-            val v2 = if (i < parts2.size) parts2[i] else 0
-
-            when {
-                v1 < v2 -> return -1
-                v1 > v2 -> return 1
-            }
-        }
-
-        return 0
-    }
-
 }

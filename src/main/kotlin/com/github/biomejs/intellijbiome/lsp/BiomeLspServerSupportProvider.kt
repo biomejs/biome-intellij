@@ -27,13 +27,13 @@ import com.intellij.util.SmartList
     ) {
         val currentConfigPath = project.service<BiomeServerService>().getCurrentConfigPath()
         if (currentConfigPath != null) {
-            val executable = BiomePackage(project).binaryPath(currentConfigPath, false) ?: return
+            val executable = BiomePackage(project).binaryPath(currentConfigPath, file, false) ?: return
             serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, executable, currentConfigPath))
             return
         }
 
         val configPath = BiomePackage(project).configPath(file)
-        val executable = BiomePackage(project).binaryPath(configPath, false) ?: return
+        val executable = BiomePackage(project).binaryPath(configPath, file, false) ?: return
         serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, executable, configPath))
     }
 
@@ -45,7 +45,8 @@ import com.intellij.util.SmartList
 @Suppress("UnstableApiUsage") private class BiomeLspServerDescriptor(project: Project,
     val executable: String,
     val configPath: String?) : ProjectWideLspServerDescriptor(project, "Biome") {
-    private val targetRunBuilder = BiomeTargetRunBuilder(project)
+    private val targetRunBuilder: BiomeTargetRunBuilder
+        get() = BiomeTargetRunBuilder(project)
 
     override fun isSupportedFile(file: VirtualFile): Boolean {
         return BiomeSettings.getInstance(project).fileSupported(file)
