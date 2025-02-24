@@ -8,7 +8,6 @@ import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerSupportProvider
@@ -16,7 +15,6 @@ import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import com.intellij.util.SmartList
-import kotlin.io.path.Path
 
 
 @Suppress("UnstableApiUsage") class BiomeLspServerSupportProvider : LspServerSupportProvider {
@@ -75,7 +73,7 @@ import kotlin.io.path.Path
         targetRun.toTargetPath(file.path)
 
     override fun findLocalFileByPath(path: String): VirtualFile? =
-        VfsUtil.findFile(Path(targetRun.toLocalPath(path)), true)
+        super.findLocalFileByPath(targetRun.toLocalPath(path))
 
     override val lspGoToDefinitionSupport = false
     override val lspCompletionSupport = null
