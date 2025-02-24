@@ -1,7 +1,6 @@
 package com.github.biomejs.intellijbiome
 
 import com.intellij.execution.ExecutionException
-import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.target.value.TargetValue
 import com.intellij.javascript.nodejs.execution.NodeTargetRun
 import com.intellij.javascript.nodejs.execution.NodeTargetRunOptions.Companion.of
@@ -53,7 +52,7 @@ class NodeProcessCommandBuilder(
         return this
     }
 
-    override fun build(): OSProcessHandler {
+    override fun build(): BiomeTargetRun {
         val exec = executable ?: throw ExecutionException(BiomeBundle.message("biome.language.server.not.found"))
 
         workingDir?.let { builder.setWorkingDirectory(target.path(it)) }
@@ -62,7 +61,6 @@ class NodeProcessCommandBuilder(
         inputFile?.let { builder.setInputFile(TargetValue.fixed(it.path)) }
         charset?.let { builder.charset = it }
 
-        val process = target.startProcessEx()
-        return process.processHandler
+        return BiomeTargetRun.Node(target)
     }
 }

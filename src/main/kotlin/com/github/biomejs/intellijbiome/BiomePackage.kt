@@ -97,6 +97,7 @@ class BiomePackage(private val project: Project) {
                 .getBuilder(binaryPath)
                 .addParameters(listOf(ProcessCommandParameter.Value("--version")))
                 .build()
+                .startProcess()
 
         return runCatching {
             val result = runProcessFuture(processHandler).await()

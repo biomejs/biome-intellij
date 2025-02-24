@@ -3,11 +3,45 @@ package com.github.biomejs.intellijbiome
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.intellij.execution.ExecutionException
+import com.intellij.execution.configurations.GeneralCommandLine
+import com.intellij.execution.process.CapturingProcessHandler
+import com.intellij.execution.process.OSProcessHandler
+import com.intellij.javascript.nodejs.execution.NodeTargetRun
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.interpreter.local.NodeJsLocalInterpreter
 import com.intellij.javascript.nodejs.interpreter.wsl.WslNodeInterpreter
 import com.intellij.lang.javascript.JavaScriptBundle
 import com.intellij.openapi.project.Project
+import com.intellij.util.io.BaseOutputReader
+
+sealed interface BiomeTargetRun {
+    fun startProcess(): OSProcessHandler
+    fun toTargetPath(path: String): String
+    fun toLocalPath(path: String): String
+
+    class Node(private val run: NodeTargetRun) : BiomeTargetRun {
+        override fun startProcess(): OSProcessHandler = run.startProcessEx().processHandler
+        override fun toTargetPath(path: String) = run.convertLocalPathToTargetPath(path)
+        override fun toLocalPath(path: String) = run.convertTargetPathToLocalPath(path)
+    }
+
+    class General(private val command: GeneralCommandLine) : BiomeTargetRun {
+        override fun startProcess() =
+            object : CapturingProcessHandler(command) {
+                override fun readerOptions(): BaseOutputReader.Options {
+                    return object : BaseOutputReader.Options() {
+                        // This option ensures that line separators are not converted to LF
+                        // when the formatter sends e.g., CRLF
+                        override fun splitToLines(): Boolean = false
+                    }
+                }
+            }
+
+        // TODO: custom executable is not supported in WSL yet
+        override fun toTargetPath(path: String) = path
+        override fun toLocalPath(path: String) = path
+    }
+}
 
 class BiomeTargetRunBuilder(val project: Project) {
     fun getBuilder(

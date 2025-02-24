@@ -2,10 +2,7 @@ package com.github.biomejs.intellijbiome
 
 import com.intellij.execution.ExecutionException
 import com.intellij.execution.configurations.GeneralCommandLine
-import com.intellij.execution.process.CapturingProcessHandler
-import com.intellij.execution.process.OSProcessHandler
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.util.io.BaseOutputReader
 import java.io.File
 import java.nio.charset.Charset
 import kotlin.io.path.Path
@@ -45,7 +42,7 @@ class GeneralProcessCommandBuilder : ProcessCommandBuilder {
         return this
     }
 
-    override fun build(): OSProcessHandler {
+    override fun build(): BiomeTargetRun {
         val exec = executable ?: throw ExecutionException(BiomeBundle.message("biome.language.server.not.found"))
 
         command.withExePath(exec)
@@ -54,14 +51,6 @@ class GeneralProcessCommandBuilder : ProcessCommandBuilder {
         command.addParameters(parameters)
         charset?.let { command.withCharset(it) }
 
-        return object : CapturingProcessHandler(command) {
-            override fun readerOptions(): BaseOutputReader.Options {
-                return object : BaseOutputReader.Options() {
-                    // This option ensures that line separators are not converted to LF
-                    // when the formatter sends e.g., CRLF
-                    override fun splitToLines(): Boolean = false
-                }
-            }
-        }
+        return BiomeTargetRun.General(command)
     }
 }
