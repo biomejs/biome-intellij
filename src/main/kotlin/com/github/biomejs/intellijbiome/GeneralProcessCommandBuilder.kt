@@ -29,8 +29,9 @@ class GeneralProcessCommandBuilder : ProcessCommandBuilder {
         return this
     }
 
-    override fun addParameters(params: List<String>): ProcessCommandBuilder {
-        parameters.addAll(params)
+    override fun addParameters(params: List<ProcessCommandParameter>): ProcessCommandBuilder {
+        // TODO: custom executable is not supported in WSL yet
+        parameters.addAll(params.map { it.toString() })
         return this
     }
 

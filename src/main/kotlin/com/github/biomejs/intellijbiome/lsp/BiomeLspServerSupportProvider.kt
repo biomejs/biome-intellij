@@ -3,6 +3,7 @@ package com.github.biomejs.intellijbiome.lsp
 import com.github.biomejs.intellijbiome.BiomeIcons
 import com.github.biomejs.intellijbiome.BiomePackage
 import com.github.biomejs.intellijbiome.BiomeTargetRunBuilder
+import com.github.biomejs.intellijbiome.ProcessCommandParameter
 import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.github.biomejs.intellijbiome.settings.BiomeConfigurable
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
@@ -57,10 +58,10 @@ import com.intellij.util.SmartList
     }
 
     override fun startServerProcess(): OSProcessHandler {
-        val params = SmartList("lsp-proxy")
+        val params = SmartList<ProcessCommandParameter>(ProcessCommandParameter.Value("lsp-proxy"))
         if (!configPath.isNullOrEmpty()) {
-            params.add("--config-path")
-            params.add(configPath)
+            params.add(ProcessCommandParameter.Value("--config-path"))
+            params.add(ProcessCommandParameter.FilePath(configPath))
         }
 
         return targetRunBuilder.getBuilder(executable).apply {
