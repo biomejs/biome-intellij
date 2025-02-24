@@ -93,7 +93,11 @@ class BiomePackage(private val project: Project) {
         }
 
         val processHandler =
-            BiomeTargetRunBuilder(project).getBuilder(binaryPath).addParameters(listOf("--version")).build()
+            BiomeTargetRunBuilder(project)
+                .getBuilder(binaryPath)
+                .addParameters(listOf(ProcessCommandParameter.Value("--version")))
+                .build()
+
         return runCatching {
             val result = runProcessFuture(processHandler).await()
             val processOutput = result.processOutput

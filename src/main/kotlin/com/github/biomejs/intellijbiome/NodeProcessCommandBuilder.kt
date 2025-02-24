@@ -33,8 +33,13 @@ class NodeProcessCommandBuilder(
         return this
     }
 
-    override fun addParameters(params: List<String>): ProcessCommandBuilder {
-        parameters.addAll(params)
+    override fun addParameters(params: List<ProcessCommandParameter>): ProcessCommandBuilder {
+        parameters.addAll(params.map {
+            when (it) {
+                is ProcessCommandParameter.Value -> it.value
+                is ProcessCommandParameter.FilePath -> target.convertLocalPathToTargetPath(it.path)
+            }
+        })
         return this
     }
 
