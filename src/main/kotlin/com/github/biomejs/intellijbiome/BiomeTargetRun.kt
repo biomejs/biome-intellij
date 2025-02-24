@@ -6,6 +6,7 @@ import com.intellij.execution.ExecutionException
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.CapturingProcessHandler
 import com.intellij.execution.process.OSProcessHandler
+import com.intellij.execution.wsl.WSLDistribution
 import com.intellij.javascript.nodejs.execution.NodeTargetRun
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.interpreter.local.NodeJsLocalInterpreter
@@ -13,6 +14,7 @@ import com.intellij.javascript.nodejs.interpreter.wsl.WslNodeInterpreter
 import com.intellij.lang.javascript.JavaScriptBundle
 import com.intellij.openapi.project.Project
 import com.intellij.util.io.BaseOutputReader
+import kotlin.io.path.Path
 
 sealed interface BiomeTargetRun {
     fun startProcess(): OSProcessHandler
@@ -25,8 +27,11 @@ sealed interface BiomeTargetRun {
         override fun toLocalPath(path: String) = run.convertTargetPathToLocalPath(path)
     }
 
-    class General(private val command: GeneralCommandLine) : BiomeTargetRun {
-        override fun startProcess() =
+    class General(
+        private val command: GeneralCommandLine,
+        private val wslDistribution: WSLDistribution? = null,
+    ) : BiomeTargetRun {
+        override fun startProcess(): OSProcessHandler =
             object : CapturingProcessHandler(command) {
                 override fun readerOptions(): BaseOutputReader.Options {
                     return object : BaseOutputReader.Options() {
@@ -37,9 +42,8 @@ sealed interface BiomeTargetRun {
                 }
             }
 
-        // TODO: custom executable is not supported in WSL yet
-        override fun toTargetPath(path: String) = path
-        override fun toLocalPath(path: String) = path
+        override fun toTargetPath(path: String) = wslDistribution?.getWslPath(Path(path)) ?: path
+        override fun toLocalPath(path: String) = wslDistribution?.getWindowsPath(path) ?: path
     }
 }
 

@@ -15,6 +15,7 @@ import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import com.intellij.util.SmartList
+import kotlin.io.path.Path
 
 
 @Suppress("UnstableApiUsage") class BiomeLspServerSupportProvider : LspServerSupportProvider {
@@ -47,7 +48,7 @@ import com.intellij.util.SmartList
         val params = SmartList<ProcessCommandParameter>(ProcessCommandParameter.Value("lsp-proxy"))
         if (!configPath.isNullOrEmpty()) {
             params.add(ProcessCommandParameter.Value("--config-path"))
-            params.add(ProcessCommandParameter.FilePath(configPath))
+            params.add(ProcessCommandParameter.FilePath(Path(configPath)))
         }
 
         BiomeTargetRunBuilder(project).getBuilder(executable).apply {
