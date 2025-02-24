@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.6.0
+
+### Bug Fixes
+
+- Improve BiomePackage and LSP startup logic ([#129](https://github.com/biomejs/biome-intellij/pull/129))
+- Support running Biome on WSL Node.js interpreter ([#131](https://github.com/biomejs/biome-intellij/pull/131))
+- Convert WSL path to local path and vice versa ([#132](https://github.com/biomejs/biome-intellij/pull/132))
+
+### Features
+
+- Refactor and replace BiomeRunner with BiomeServerService ([#124](https://github.com/biomejs/biome-intellij/pull/124))
+
 ## 1.5.5
 
 ### Bug Fixes
