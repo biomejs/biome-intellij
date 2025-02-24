@@ -1,6 +1,5 @@
 package com.github.biomejs.intellijbiome
 
-import com.intellij.execution.process.OSProcessHandler
 import com.intellij.openapi.vfs.VirtualFile
 import java.nio.charset.Charset
 
@@ -10,5 +9,5 @@ interface ProcessCommandBuilder {
     fun addParameters(params: List<ProcessCommandParameter>): ProcessCommandBuilder
     fun setExecutable(executable: String): ProcessCommandBuilder
     fun setCharset(charset: Charset): ProcessCommandBuilder
-    fun build(): OSProcessHandler
+    fun build(): BiomeTargetRun
 }

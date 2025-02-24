@@ -1,9 +1,6 @@
 package com.github.biomejs.intellijbiome.lsp
 
-import com.github.biomejs.intellijbiome.BiomeIcons
-import com.github.biomejs.intellijbiome.BiomePackage
-import com.github.biomejs.intellijbiome.BiomeTargetRunBuilder
-import com.github.biomejs.intellijbiome.ProcessCommandParameter
+import com.github.biomejs.intellijbiome.*
 import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.github.biomejs.intellijbiome.settings.BiomeConfigurable
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
@@ -44,10 +41,22 @@ import com.intellij.util.SmartList
 }
 
 @Suppress("UnstableApiUsage") private class BiomeLspServerDescriptor(project: Project,
-    val executable: String,
-    val configPath: String?) : ProjectWideLspServerDescriptor(project, "Biome") {
-    private val targetRunBuilder: BiomeTargetRunBuilder
-        get() = BiomeTargetRunBuilder(project)
+    executable: String,
+    configPath: String?) : ProjectWideLspServerDescriptor(project, "Biome") {
+    private val targetRun = run {
+        val params = SmartList<ProcessCommandParameter>(ProcessCommandParameter.Value("lsp-proxy"))
+        if (!configPath.isNullOrEmpty()) {
+            params.add(ProcessCommandParameter.Value("--config-path"))
+            params.add(ProcessCommandParameter.FilePath(configPath))
+        }
+
+        BiomeTargetRunBuilder(project).getBuilder(executable).apply {
+            if (configPath.isNullOrEmpty()) {
+                setWorkingDirectory(configPath)
+            }
+            addParameters(params)
+        }.build()
+    }
 
     override fun isSupportedFile(file: VirtualFile): Boolean {
         return BiomeSettings.getInstance(project).fileSupported(file)
@@ -57,20 +66,14 @@ import com.intellij.util.SmartList
         throw RuntimeException("Not expected to be called because startServerProcess() is overridden")
     }
 
-    override fun startServerProcess(): OSProcessHandler {
-        val params = SmartList<ProcessCommandParameter>(ProcessCommandParameter.Value("lsp-proxy"))
-        if (!configPath.isNullOrEmpty()) {
-            params.add(ProcessCommandParameter.Value("--config-path"))
-            params.add(ProcessCommandParameter.FilePath(configPath))
-        }
+    override fun startServerProcess(): OSProcessHandler =
+        targetRun.startProcess()
 
-        return targetRunBuilder.getBuilder(executable).apply {
-            if (!configPath.isNullOrEmpty()) {
-                setWorkingDirectory(configPath)
-            }
-            addParameters(params)
-        }.build()
-    }
+    override fun getFilePath(file: VirtualFile): String =
+        targetRun.toTargetPath(file.path)
+
+    override fun findLocalFileByPath(path: String): VirtualFile? =
+        super.findLocalFileByPath(targetRun.toLocalPath(path))
 
     override val lspGoToDefinitionSupport = false
     override val lspCompletionSupport = null
