@@ -12,9 +12,26 @@ import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.interpreter.local.NodeJsLocalInterpreter
 import com.intellij.javascript.nodejs.interpreter.wsl.WslNodeInterpreter
 import com.intellij.lang.javascript.JavaScriptBundle
+import com.intellij.openapi.progress.EmptyProgressIndicator
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Computable
 import com.intellij.util.io.BaseOutputReader
 import kotlin.io.path.Path
+
+/**
+ * Wraps a function that starts a process to be run with an empty progress indicator as a workaround.
+ * Starting process will throw a `java.lang.IllegalStateException` on some cases on WSL 2 environment.
+ * This is a IntelliJ's bug and already fixed, but it's not shipped in WebStorm yet.
+ *
+ * TODO(siketyan): Remove this after bumped to >= 2025.1 (see IDEA-361222)
+ *
+ * @see <a href="https://youtrack.jetbrains.com/issue/IDEA-347138/">IDEA-347138</a>
+ * @see <a href="https://youtrack.jetbrains.com/issue/IDEA-361122/">IDEA-361122</a>
+ * @see <a href="https://github.com/JetBrains/intellij-community/commit/4128257db806af35e52556ac16bbac8776019544">Commit 4128257 in intellij-community</a>
+ */
+fun wrapStartProcess(processCreator: () -> OSProcessHandler): OSProcessHandler =
+    ProgressManager.getInstance().runProcess(Computable(processCreator), EmptyProgressIndicator())
 
 sealed interface BiomeTargetRun {
     fun startProcess(): OSProcessHandler
@@ -22,7 +39,11 @@ sealed interface BiomeTargetRun {
     fun toLocalPath(path: String): String
 
     class Node(private val run: NodeTargetRun) : BiomeTargetRun {
-        override fun startProcess(): OSProcessHandler = run.startProcessEx().processHandler
+        override fun startProcess(): OSProcessHandler =
+            wrapStartProcess {
+                run.startProcessEx().processHandler
+            }
+
         override fun toTargetPath(path: String) = run.convertLocalPathToTargetPath(path)
         override fun toLocalPath(path: String) = run.convertTargetPathToLocalPath(path)
     }
@@ -32,12 +53,14 @@ sealed interface BiomeTargetRun {
         private val wslDistribution: WSLDistribution? = null,
     ) : BiomeTargetRun {
         override fun startProcess(): OSProcessHandler =
-            object : CapturingProcessHandler(command) {
-                override fun readerOptions(): BaseOutputReader.Options {
-                    return object : BaseOutputReader.Options() {
-                        // This option ensures that line separators are not converted to LF
-                        // when the formatter sends e.g., CRLF
-                        override fun splitToLines(): Boolean = false
+            wrapStartProcess {
+                object : CapturingProcessHandler(command) {
+                    override fun readerOptions(): BaseOutputReader.Options {
+                        return object : BaseOutputReader.Options() {
+                            // This option ensures that line separators are not converted to LF
+                            // when the formatter sends e.g., CRLF
+                            override fun splitToLines(): Boolean = false
+                        }
                     }
                 }
             }
