@@ -36,7 +36,7 @@ class NodeProcessCommandBuilder(
         parameters.addAll(params.map {
             when (it) {
                 is ProcessCommandParameter.Value -> it.value
-                is ProcessCommandParameter.FilePath -> target.convertLocalPathToTargetPath(it.path)
+                is ProcessCommandParameter.FilePath -> target.convertLocalPathToTargetPath(it.path.toString())
             }
         })
         return this

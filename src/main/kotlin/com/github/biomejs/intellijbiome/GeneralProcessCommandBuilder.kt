@@ -2,6 +2,9 @@ package com.github.biomejs.intellijbiome
 
 import com.intellij.execution.ExecutionException
 import com.intellij.execution.configurations.GeneralCommandLine
+import com.intellij.execution.wsl.WSLCommandLineOptions
+import com.intellij.execution.wsl.WslPath
+import com.intellij.execution.wsl.getWslPathSafe
 import com.intellij.openapi.vfs.VirtualFile
 import java.io.File
 import java.nio.charset.Charset
@@ -14,7 +17,7 @@ class GeneralProcessCommandBuilder : ProcessCommandBuilder {
     private var workingDir: String? = null
     private var inputFile: VirtualFile? = null
     private var charset: Charset? = null
-    private val parameters = mutableListOf<String>()
+    private val parameters = mutableListOf<ProcessCommandParameter>()
 
     override fun setWorkingDirectory(path: String?): ProcessCommandBuilder {
         workingDir = path
@@ -27,8 +30,7 @@ class GeneralProcessCommandBuilder : ProcessCommandBuilder {
     }
 
     override fun addParameters(params: List<ProcessCommandParameter>): ProcessCommandBuilder {
-        // TODO: custom executable is not supported in WSL yet
-        parameters.addAll(params.map { it.toString() })
+        parameters.addAll(params)
         return this
     }
 
@@ -48,9 +50,34 @@ class GeneralProcessCommandBuilder : ProcessCommandBuilder {
         command.withExePath(exec)
         workingDir?.let { command.withWorkingDirectory(Path(it)) }
         inputFile?.let { command.withInput(File(it.path)) }
-        command.addParameters(parameters)
         charset?.let { command.withCharset(it) }
 
-        return BiomeTargetRun.General(command)
+        // patch the command line to be run on WSL 2 instead of the host
+        val wslDistribution = WslPath.getDistributionByWindowsUncPath(exec)
+        if (wslDistribution != null) {
+            command.withExePath(wslDistribution.getWslPathSafe(Path(exec)))
+
+            // add command parameters, converting file paths if needed
+            command.addParameters(parameters.map {
+                when (it) {
+                    is ProcessCommandParameter.Value -> it.value
+                    is ProcessCommandParameter.FilePath -> wslDistribution.getWslPathSafe(it.path)
+                }
+            })
+
+            val options = WSLCommandLineOptions().apply {
+                setPassEnvVarsUsingInterop(true)
+
+                workingDir?.let {
+                    setRemoteWorkingDirectory(wslDistribution.getWslPathSafe(Path(it)))
+                }
+            }
+
+            wslDistribution.patchCommandLine(command, null, options)
+        } else {
+            command.addParameters(parameters.map { it.toString() })
+        }
+
+        return BiomeTargetRun.General(command, wslDistribution)
     }
 }
