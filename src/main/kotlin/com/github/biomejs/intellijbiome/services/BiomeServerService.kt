@@ -3,7 +3,6 @@
 package com.github.biomejs.intellijbiome.services
 
 import com.github.biomejs.intellijbiome.BiomeBundle
-import com.github.biomejs.intellijbiome.listeners.BiomeEditorPanelListener
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
 import com.intellij.codeStyle.AbstractConvertLineSeparatorsAction
 import com.intellij.notification.NotificationGroupManager
@@ -12,7 +11,6 @@ import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
-import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VirtualFile
@@ -26,26 +24,20 @@ import java.util.*
 
 @Service(Service.Level.PROJECT)
 class BiomeServerService(private val project: Project) {
-    private val editorPanelListener: BiomeEditorPanelListener
-
     private val groupId = "Biome"
 
     enum class Feature {
         Format, ApplySafeFixes, SortImports
     }
 
-    init {
-        editorPanelListener = BiomeEditorPanelListener(project)
-        project.messageBus.connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, editorPanelListener)
-    }
-
     companion object {
         fun getInstance(project: Project): BiomeServerService = project.getService(BiomeServerService::class.java)
     }
 
-    fun getServer(): LspServerImpl? =
+    private fun getServer(file: VirtualFile): LspServerImpl? =
         LspServerManager.getInstance(project).getServersForProvider(BiomeLspServerSupportProvider::class.java)
-            .firstOrNull().let { it as? LspServerImpl }
+            .firstOrNull { server -> server.descriptor.isSupportedFile(file) }
+            .let { it as? LspServerImpl }
 
     suspend fun applySafeFixes(document: Document) {
         executeFeatures(document, EnumSet.of(Feature.ApplySafeFixes))
@@ -59,10 +51,6 @@ class BiomeServerService(private val project: Project) {
         executeFeatures(document, EnumSet.of(Feature.Format))
     }
 
-    fun getCurrentConfigPath(): String? {
-        return editorPanelListener.getCurrentConfigPath()
-    }
-
     fun restartBiomeServer() {
         LspServerManager.getInstance(project).stopAndRestartIfNeeded(BiomeLspServerSupportProvider::class.java)
     }
@@ -73,9 +61,9 @@ class BiomeServerService(private val project: Project) {
 
     suspend fun executeFeatures(document: Document,
         features: EnumSet<Feature>) {
-        val server = getServer() ?: return
         val manager = FileDocumentManager.getInstance()
         val file = manager.getFile(document) ?: return
+        val server = getServer(file) ?: return
         val commandName = BiomeBundle.message("biome.run.biome.check.with.features",
             features.joinToString(prefix = "(", postfix = ")") { it -> it.toString().lowercase() })
 

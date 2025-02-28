@@ -1,5 +1,6 @@
 package com.github.biomejs.intellijbiome
 
+import com.github.biomejs.intellijbiome.extensions.isBiomeConfigFile
 import com.intellij.ide.IconProvider
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -13,9 +14,7 @@ class BiomeConfigIconProvider : IconProvider() {
         val virtualFile = file.virtualFile ?: return null
 
         // Check if the file is a valid Biome config file
-        if (virtualFile.name.contains(BiomePackage.configName) &&
-            BiomePackage.configValidExtensions.contains(virtualFile.extension)
-        ) {
+        if (virtualFile.isBiomeConfigFile()) {
             return BiomeIcons.BiomeIcon
         }
 

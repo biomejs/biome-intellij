@@ -41,12 +41,12 @@ class BiomePackage(private val project: Project) {
         return pkg
     }
 
-    fun configPath(file: VirtualFile): String? {
+    fun configPath(): String? {
         val settings = BiomeSettings.getInstance(project)
         val configurationMode = settings.configurationMode
         return when (configurationMode) {
             ConfigurationMode.DISABLED -> null
-            ConfigurationMode.AUTOMATIC -> findPathUpwards(file, configValidExtensions.map { "$configName.$it" })?.path
+            ConfigurationMode.AUTOMATIC -> null // Let Biome find the config file
             ConfigurationMode.MANUAL -> settings.configPath
         }
     }
@@ -110,18 +110,5 @@ class BiomePackage(private val project: Project) {
 
     companion object {
         const val configName = "biome"
-        val configValidExtensions = listOf("json", "jsonc")
-    }
-
-    private fun findPathUpwards(file: VirtualFile,
-        fileName: List<String>): VirtualFile? {
-        var cur = file.parent
-        while (cur != null) {
-            if (cur.children.find { name -> fileName.any { it == name.name } } != null) {
-                return cur
-            }
-            cur = cur.parent
-        }
-        return null
     }
 }
