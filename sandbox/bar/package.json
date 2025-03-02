@@ -1,0 +1,11 @@
+{
+  "name": "@biome-intellij-sandbox/bar",
+  "private": true,
+  "packageManager": "pnpm@10.5.2",
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4"
+  },
+  "scripts": {
+    "check": "biome check"
+  }
+}
