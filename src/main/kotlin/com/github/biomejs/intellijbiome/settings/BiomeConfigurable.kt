@@ -2,6 +2,7 @@ package com.github.biomejs.intellijbiome.settings
 
 import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.BiomePackage
+import com.github.biomejs.intellijbiome.extensions.isBiomeConfigFile
 import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.intellij.ide.actionsOnSave.ActionsOnSaveConfigurable
 import com.intellij.lang.javascript.JavaScriptBundle
@@ -12,6 +13,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.ui.ValidationInfo
+import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.ContextHelpLabel
 import com.intellij.ui.components.JBTextField
@@ -22,10 +24,10 @@ import com.intellij.ui.layout.selected
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import java.awt.event.ItemEvent
-import java.io.File
 import javax.swing.JCheckBox
 import javax.swing.JRadioButton
 import javax.swing.event.HyperlinkEvent
+import kotlin.io.path.Path
 
 private const val HELP_TOPIC = "reference.settings.biome"
 
@@ -218,12 +220,11 @@ class BiomeConfigurable(internal val project: Project) :
     }
 
     private fun validateConfigDir(): ValidationInfoBuilder.(TextFieldWithBrowseButton) -> ValidationInfo? = {
-        val selected = File(it.text)
-
-        if (!selected.exists()) {
+        val selected = VfsUtil.findFile(Path(it.text), true)
+        if (selected == null || !selected.exists()) {
             ValidationInfo(BiomeBundle.message("biome.configuration.file.not.found"), it)
         } else {
-            if (!selected.name.contains(BiomePackage.configName) && BiomePackage.configValidExtensions.contains(selected.extension)) {
+            if (!selected.isBiomeConfigFile()) {
                 ValidationInfo(BiomeBundle.message("biome.configuration.file.not.found"), it)
             } else {
                 null
