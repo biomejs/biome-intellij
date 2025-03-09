@@ -14,8 +14,10 @@ import com.intellij.platform.lsp.api.LspServerDescriptor
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
-import com.intellij.util.SmartList
 import kotlin.io.path.Path
+import kotlinx.coroutines.runBlocking
+import org.eclipse.lsp4j.ClientCapabilities
+import org.eclipse.lsp4j.ConfigurationItem
 
 
 @Suppress("UnstableApiUsage") class BiomeLspServerSupportProvider : LspServerSupportProvider {
@@ -29,10 +31,12 @@ import kotlin.io.path.Path
         val projectRootDir = project.guessProjectDir() ?: return
         val root = file.findNearestBiomeConfig(projectRootDir)?.parent ?: projectRootDir
 
-        val configPath = BiomePackage(project).configPath()
-        val executable = BiomePackage(project).binaryPath(root.path, file, false) ?: return
+        val biome = BiomePackage(project)
+        val configPath = biome.configPath()
+        val executable = biome.binaryPath(root.path, file, false) ?: return
+        val version = runBlocking { biome.versionNumber() }
 
-        serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, root, executable, configPath))
+        serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, root, executable, version, configPath))
     }
 
     override fun createLspServerWidgetItem(lspServer: LspServer,
@@ -44,16 +48,23 @@ import kotlin.io.path.Path
     project: Project,
     root: VirtualFile,
     executable: String,
-    configPath: String?,
+    version: String?,
+    private val configPath: String?,
 ) : LspServerDescriptor(project, "Biome", root) {
-    private val targetRun = run {
-        val params = SmartList<ProcessCommandParameter>(ProcessCommandParameter.Value("lsp-proxy"))
-        if (!configPath.isNullOrEmpty()) {
-            params.add(ProcessCommandParameter.Value("--config-path"))
-            params.add(ProcessCommandParameter.FilePath(Path(configPath)))
+    private val targetRun: BiomeTargetRun = run {
+        var builder = BiomeTargetRunBuilder(project)
+            .getBuilder(executable)
+            .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
+
+        // Backward compatibility for v1; `--config-path` is no longer available in v2
+        if (version != null && version.startsWith("1.") && !configPath.isNullOrEmpty()) {
+            builder = builder.addParameters(listOf(
+                ProcessCommandParameter.Value("--config-path"),
+                ProcessCommandParameter.FilePath(Path(configPath))
+            ))
         }
 
-        BiomeTargetRunBuilder(project).getBuilder(executable).addParameters(params).build()
+        builder.build()
     }
 
     override fun isSupportedFile(file: VirtualFile): Boolean {
@@ -85,6 +96,21 @@ import kotlin.io.path.Path
         ): Boolean {
             val settings = BiomeSettings.getInstance(project)
             return settings.enableLspFormat
+        }
+    }
+
+    override val clientCapabilities: ClientCapabilities
+        get() = super.clientCapabilities.apply {
+            workspace.configuration = true
+        }
+
+    override fun getWorkspaceConfiguration(item: ConfigurationItem): BiomeLspWorkspaceSettings? {
+        if (item.section != "biome") {
+            return null
+        }
+
+        return BiomeLspWorkspaceSettings().apply {
+            configurationPath = configPath
         }
     }
 }
