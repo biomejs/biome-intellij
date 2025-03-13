@@ -18,6 +18,7 @@ import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.customization.LspIntentionAction
 import com.intellij.platform.lsp.impl.LspServerImpl
 import com.intellij.platform.lsp.util.getLsp4jRange
+import com.intellij.platform.lsp.util.getRangeInDocument
 import com.intellij.util.LineSeparator
 import org.eclipse.lsp4j.*
 import java.util.*
@@ -124,18 +125,39 @@ class BiomeServerService(private val project: Project) {
 
             val formattingResults = server.sendRequest { it.textDocumentService.formatting(formattingParams) }
 
-            formattingResults?.forEach {
-                val lineSeparator = StringUtil.detectSeparators(it.newText)
-                val normalizedText = StringUtil.convertLineSeparators(it.newText)
+            formattingActions.add(Runnable {
+                var lineSeparator: LineSeparator? = null
 
-                formattingActions.add(Runnable {
-                    if (!StringUtil.equals(document.charsSequence, normalizedText)) {
-                        document.setText(normalizedText)
+                formattingResults?.forEach {
+                    val range = getRangeInDocument(document, it.range) ?: return@forEach
+
+                    if (StringUtil.isEmpty(it.newText)) {
+                        document.deleteString(range.startOffset, range.endOffset)
+                    } else {
+                        val normalizedText = StringUtil.convertLineSeparators(it.newText)
+
+                        if (range.endOffset >= 0) {
+                            if (range.length <= 0) {
+                                document.insertString(range.startOffset, normalizedText)
+                            } else {
+                                document.replaceString(range.startOffset, range.endOffset, normalizedText)
+                            }
+                        } else if (range.startOffset > 0) {
+                            document.insertString(range.startOffset, normalizedText)
+                        } else if (!StringUtil.equals(document.charsSequence, normalizedText)) {
+                            document.setText(normalizedText)
+                        }
                     }
 
+                    StringUtil.detectSeparators(it.newText)?.apply {
+                        lineSeparator = this
+                    }
+                }
+
+                if (lineSeparator != null) {
                     setDetectedLineSeparator(project, file, lineSeparator)
-                })
-            }
+                }
+            })
 
             WriteCommandAction.runWriteCommandAction(project, commandName, groupId, {
                 formattingActions.forEach { it.run() }
