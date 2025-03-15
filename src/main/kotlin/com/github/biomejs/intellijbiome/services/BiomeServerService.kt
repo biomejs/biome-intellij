@@ -124,11 +124,17 @@ class BiomeServerService(private val project: Project) {
                 })
 
             val formattingResults = server.sendRequest { it.textDocumentService.formatting(formattingParams) }
+            if (formattingResults == null) {
+                return;
+            }
 
             formattingActions.add(Runnable {
                 var lineSeparator: LineSeparator? = null
 
-                formattingResults?.forEach {
+                // To avoid getting incorrect offsets, we need to run the text edits in a reversed order.
+                formattingResults.reverse();
+
+                formattingResults.forEach {
                     val range = getRangeInDocument(document, it.range) ?: return@forEach
 
                     if (StringUtil.isEmpty(it.newText)) {
