@@ -68,26 +68,28 @@ class BiomeServerService(private val project: Project) {
         val commandName = BiomeBundle.message("biome.run.biome.check.with.features",
             features.joinToString(prefix = "(", postfix = ")") { it -> it.toString().lowercase() })
 
-        val formattingActions = mutableListOf<Runnable>()
-
         if (features.contains(Feature.ApplySafeFixes) || features.contains(Feature.SortImports)) {
-            val result = mutableListOf<LspIntentionAction>()
-
             if (features.contains(Feature.ApplySafeFixes)) {
                 val codeActionParams = CodeActionParams(server.getDocumentIdentifier(file),
                     getLsp4jRange(document, 0, document.textLength),
                     CodeActionContext().apply {
                         diagnostics = emptyList()
-                        only = listOf<String>("quickfix.biome")
+                        only = listOf("quickfix.biome")
                         triggerKind = CodeActionTriggerKind.Automatic
                     })
 
                 val codeActionResults = server.sendRequest { it.textDocumentService.codeAction(codeActionParams) }
-                codeActionResults?.forEach {
-                    if (it.isRight) {
-                        result.add(LspIntentionAction(server, it.right))
+
+                WriteCommandAction.runWriteCommandAction(project, commandName, groupId, {
+                    codeActionResults?.forEach {
+                        if (it.isRight) {
+                            val action = LspIntentionAction(server, it.right)
+                            if (action.isAvailable()) {
+                                action.invoke(null)
+                            }
+                        }
                     }
-                }
+                })
             }
 
             if (features.contains(Feature.SortImports)) {
@@ -95,25 +97,23 @@ class BiomeServerService(private val project: Project) {
                     getLsp4jRange(document, 0, document.textLength),
                     CodeActionContext().apply {
                         diagnostics = emptyList()
-                        only = listOf<String>("source.organizeImports.biome")
+                        only = listOf("source.organizeImports.biome")
                         triggerKind = CodeActionTriggerKind.Automatic
                     })
 
                 val codeActionResults = server.sendRequest { it.textDocumentService.codeAction(codeActionParams) }
-                codeActionResults?.forEach {
-                    if (it.isRight) {
-                        result.add(LspIntentionAction(server, it.right))
-                    }
-                }
-            }
 
-            WriteCommandAction.runWriteCommandAction(project, commandName, groupId, {
-                result.forEach {
-                    if (it.isAvailable()) {
-                        it.invoke(null)
+                WriteCommandAction.runWriteCommandAction(project, commandName, groupId, {
+                    codeActionResults?.forEach {
+                        if (it.isRight) {
+                            val action = LspIntentionAction(server, it.right)
+                            if (action.isAvailable()) {
+                                action.invoke(null)
+                            }
+                        }
                     }
-                }
-            })
+                })
+            }
         }
 
         if (features.contains(Feature.Format)) {
@@ -124,15 +124,15 @@ class BiomeServerService(private val project: Project) {
                 })
 
             val formattingResults = server.sendRequest { it.textDocumentService.formatting(formattingParams) }
-            if (formattingResults == null) {
+            if (formattingResults.isNullOrEmpty()) {
                 return;
             }
 
-            formattingActions.add(Runnable {
-                var lineSeparator: LineSeparator? = null
+            // To avoid getting incorrect offsets, we need to run the text edits in a reversed order.
+            formattingResults.reverse();
 
-                // To avoid getting incorrect offsets, we need to run the text edits in a reversed order.
-                formattingResults.reverse();
+            val formattingAction = Runnable {
+                var lineSeparator: LineSeparator? = null
 
                 formattingResults.forEach {
                     val range = getRangeInDocument(document, it.range) ?: return@forEach
@@ -163,10 +163,10 @@ class BiomeServerService(private val project: Project) {
                 if (lineSeparator != null) {
                     setDetectedLineSeparator(project, file, lineSeparator)
                 }
-            })
+            }
 
             WriteCommandAction.runWriteCommandAction(project, commandName, groupId, {
-                formattingActions.forEach { it.run() }
+                formattingAction.run()
             })
         }
     }
