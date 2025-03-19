@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.6.1
+
+### Bug Fixes
+
+- Support textDocument/formatting response with granular text edits ([#148](https://github.com/biomejs/biome-intellij/pull/148))
+- Run text edits in a reversed order ([#151](https://github.com/biomejs/biome-intellij/pull/151))
+- Avoid conflicting code actions on save ([#149](https://github.com/biomejs/biome-intellij/pull/149))
+
+### Features
+
+- Monorepo support ([#138](https://github.com/biomejs/biome-intellij/pull/138))
+- Support workspace/configuration request for providing configuration path ([#144](https://github.com/biomejs/biome-intellij/pull/144))
+
 ## 1.6.0
 
 ### Bug Fixes
