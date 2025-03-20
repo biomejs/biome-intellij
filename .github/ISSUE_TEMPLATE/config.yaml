@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💡 Feature requests
+    url: https://github.com/biomejs/biome-intellij/discussions/new
+    about: Please use a new GitHub discussion to propose ideas of feature requests.
+  - name: 🗣️ Chat
+    url: https://biomejs.dev/chat
+    about: Our Discord server is active and is used for real-time discussions including contribution collaboration, questions, and more!
+  - name: 🆘 Support
+    url: https://biomejs.dev/chat
+    about: "For assistance, please use the #help channel on our Discord community."
