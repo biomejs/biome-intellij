@@ -6,7 +6,7 @@ body:
   - type: input
     attributes:
       label: "IDE and version"
-      description: Name of the editor and its version
+      description: Name of the IDE and its version
       placeholder: "WebStorm 2024.3.5"
     validations:
       required: true
