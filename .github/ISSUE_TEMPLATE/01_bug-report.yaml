@@ -1,5 +1,5 @@
 name: 🐛 Bug report
-description: Report an issue with the Biome VS Code extension
+description: Report an issue with the Biome IntelliJ extension
 title: "🐛 "
 labels: ["Needs triage"]
 body:
