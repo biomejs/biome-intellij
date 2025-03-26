@@ -2,7 +2,10 @@
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "linter": {
     "rules": {
-      "all": true
+      "recommended": true,
+      "style": {
+        "useConst": "error"
+      }
     }
   }
 }

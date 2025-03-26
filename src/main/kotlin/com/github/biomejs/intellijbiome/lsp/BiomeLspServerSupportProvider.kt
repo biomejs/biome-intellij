@@ -27,9 +27,9 @@ import org.eclipse.lsp4j.ConfigurationItem
         serverStarter: LspServerSupportProvider.LspServerStarter,
     ) {
         // Finds the root directory of a Biome workspace. It's typically the parent directory of `biome.json`.
-        // If no `biome.json` file found, fallbacks to the project root directory.
+        // If no `biome.json` file found, nothing to do.
         val projectRootDir = project.guessProjectDir() ?: return
-        val root = file.findNearestBiomeConfig(projectRootDir)?.parent ?: projectRootDir
+        val root = file.findNearestBiomeConfig(projectRootDir)?.parent ?: return
 
         val biome = BiomePackage(project)
         val configPath = biome.configPath()
