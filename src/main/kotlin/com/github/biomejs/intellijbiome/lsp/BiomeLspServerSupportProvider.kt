@@ -26,13 +26,20 @@ import org.eclipse.lsp4j.ConfigurationItem
         file: VirtualFile,
         serverStarter: LspServerSupportProvider.LspServerStarter,
     ) {
+        val biome = BiomePackage(project)
+        val configPath = biome.configPath()
+
         // Finds the root directory of a Biome workspace. It's typically the parent directory of `biome.json`.
         // If no `biome.json` file found, nothing to do.
         val projectRootDir = project.guessProjectDir() ?: return
-        val root = file.findNearestBiomeConfig(projectRootDir)?.parent ?: return
+        val root = if (configPath.isNullOrEmpty()) {
+            file.findNearestBiomeConfig(projectRootDir)?.parent ?: return
+        } else {
+            // When using manual configuration, the root directory will be the project root.
+            projectRootDir
+        }
 
-        val biome = BiomePackage(project)
-        val configPath = biome.configPath()
+        // Finds the Biome executable and check the version using CLI.
         val executable = biome.binaryPath(root.path, file, false) ?: return
         val version = runBlocking { biome.versionNumber() }
 
