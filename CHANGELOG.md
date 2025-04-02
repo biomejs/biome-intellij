@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.7.1
+
+### Bug Fixes
+
+- Avoid duplicated LSP instances in monorepo ([#159](https://github.com/biomejs/biome-intellij/pull/159))
+
 ## 1.7.0
 
 ### Bug Fixes
