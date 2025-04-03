@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.7.2
+
+### Bug Fixes
+
+- Fixed a regression where the plugin couldn't find biome.json at the project root ([#166](https://github.com/biomejs/biome-intellij/pull/166))
+
 ## 1.7.1
 
 ### Bug Fixes
