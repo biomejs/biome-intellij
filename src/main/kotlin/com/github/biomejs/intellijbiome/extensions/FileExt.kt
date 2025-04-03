@@ -1,5 +1,6 @@
 package com.github.biomejs.intellijbiome.extensions
 
+import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import java.io.BufferedReader
 import java.io.File
@@ -20,7 +21,7 @@ private fun VirtualFile.findNearestFile(
     root: VirtualFile? = null,
 ): VirtualFile? {
     var cur = this.parent
-    while (cur != null && cur.path != root?.path) {
+    while (cur != null && VfsUtil.isUnder(cur, mutableSetOf(root))) {
         val f = cur.children.find(predicate)
         if (f != null) {
             return f
