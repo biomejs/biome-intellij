@@ -20,7 +20,7 @@ jobs:
   publish-jetbrains:
     name: Publish to JetBrains Marketplace
     needs: [ build ]
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-arm-16
     environment: intellij-plugin
     steps:
       - name: Checkout
@@ -61,7 +61,7 @@ jobs:
   publish-github-release:
     name: Publish to GitHub Releases
     needs: [ build ]
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-arm-16
     permissions:
       contents: write
     steps:
