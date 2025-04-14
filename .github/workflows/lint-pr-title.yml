@@ -13,7 +13,7 @@ permissions:
 jobs:
   main:
     name: Validate PR title
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-arm-16
     steps:
       - uses: amannn/action-semantic-pull-request@v5
         id: lint_pr_title
