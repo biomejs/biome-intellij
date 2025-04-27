@@ -2,6 +2,7 @@ package com.github.biomejs.intellijbiome.lsp
 
 import com.github.biomejs.intellijbiome.*
 import com.github.biomejs.intellijbiome.extensions.findNearestBiomeConfig
+import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.github.biomejs.intellijbiome.settings.BiomeConfigurable
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.execution.configurations.GeneralCommandLine
@@ -14,10 +15,10 @@ import com.intellij.platform.lsp.api.LspServerDescriptor
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
-import kotlin.io.path.Path
 import kotlinx.coroutines.runBlocking
 import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.ConfigurationItem
+import kotlin.io.path.Path
 
 
 @Suppress("UnstableApiUsage") class BiomeLspServerSupportProvider : LspServerSupportProvider {
@@ -39,11 +40,22 @@ import org.eclipse.lsp4j.ConfigurationItem
             projectRootDir
         }
 
+        val roots = BiomeServerService.getInstance(project).getServer(file)?.let { server ->
+            server.descriptor.roots.toMutableList().apply {
+                if (!contains(root)) {
+                    // If the server is already running, add the new root directory to the list and stop the server.
+                    add(root)
+                    BiomeServerService.getInstance(project).stopBiomeServer()
+                }
+            }
+        } ?: mutableListOf(root)
+
         // Finds the Biome executable and check the version using CLI.
         val executable = biome.binaryPath(root.path, file, false) ?: return
         val version = runBlocking { biome.versionNumber() }
+        val descriptor = BiomeLspServerDescriptor(project, executable, version, configPath, roots.toTypedArray())
 
-        serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, root, executable, version, configPath))
+        serverStarter.ensureServerStarted(descriptor)
     }
 
     override fun createLspServerWidgetItem(lspServer: LspServer,
@@ -53,41 +65,37 @@ import org.eclipse.lsp4j.ConfigurationItem
 
 @Suppress("UnstableApiUsage") private class BiomeLspServerDescriptor(
     project: Project,
-    root: VirtualFile,
     executable: String,
     version: String?,
     private val configPath: String?,
-) : LspServerDescriptor(project, "Biome", root) {
+    roots: Array<VirtualFile>,
+) : LspServerDescriptor(project, "Biome", *roots) {
     private val targetRun: BiomeTargetRun = run {
-        var builder = BiomeTargetRunBuilder(project)
-            .getBuilder(executable)
+        var builder = BiomeTargetRunBuilder(project).getBuilder(executable)
             .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
 
         // Backward compatibility for v1; `--config-path` is no longer available in v2
         if (version != null && version.startsWith("1.") && !configPath.isNullOrEmpty()) {
-            builder = builder.addParameters(listOf(
-                ProcessCommandParameter.Value("--config-path"),
-                ProcessCommandParameter.FilePath(Path(configPath))
-            ))
+            builder = builder.addParameters(listOf(ProcessCommandParameter.Value("--config-path"),
+                ProcessCommandParameter.FilePath(Path(configPath))))
         }
 
         builder.build()
     }
 
     override fun isSupportedFile(file: VirtualFile): Boolean {
-        return BiomeSettings.getInstance(project).fileSupported(file)
-            && roots.any { root -> file.toNioPath().startsWith(root.toNioPath()) }
+        return BiomeSettings.getInstance(project).fileSupported(file) && roots.any { root ->
+            file.toNioPath().startsWith(root.toNioPath())
+        }
     }
 
     override fun createCommandLine(): GeneralCommandLine {
         throw RuntimeException("Not expected to be called because startServerProcess() is overridden")
     }
 
-    override fun startServerProcess(): OSProcessHandler =
-        targetRun.startProcess()
+    override fun startServerProcess(): OSProcessHandler = targetRun.startProcess()
 
-    override fun getFilePath(file: VirtualFile): String =
-        targetRun.toTargetPath(file.path)
+    override fun getFilePath(file: VirtualFile): String = targetRun.toTargetPath(file.path)
 
     override fun findLocalFileByPath(path: String): VirtualFile? =
         super.findLocalFileByPath(targetRun.toLocalPath(path))
