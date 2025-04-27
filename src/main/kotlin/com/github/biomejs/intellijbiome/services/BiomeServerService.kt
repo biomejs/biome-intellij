@@ -35,7 +35,7 @@ class BiomeServerService(private val project: Project) {
         fun getInstance(project: Project): BiomeServerService = project.getService(BiomeServerService::class.java)
     }
 
-    private fun getServer(file: VirtualFile): LspServerImpl? =
+    fun getServer(file: VirtualFile): LspServerImpl? =
         LspServerManager.getInstance(project).getServersForProvider(BiomeLspServerSupportProvider::class.java)
             .firstOrNull { server -> server.descriptor.isSupportedFile(file) }
             .let { it as? LspServerImpl }
@@ -125,11 +125,11 @@ class BiomeServerService(private val project: Project) {
 
             val formattingResults = server.sendRequest { it.textDocumentService.formatting(formattingParams) }
             if (formattingResults.isNullOrEmpty()) {
-                return;
+                return
             }
 
             // To avoid getting incorrect offsets, we need to run the text edits in a reversed order.
-            formattingResults.reverse();
+            formattingResults.reverse()
 
             val formattingAction = Runnable {
                 var lineSeparator: LineSeparator? = null
