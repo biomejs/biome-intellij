@@ -3,9 +3,9 @@ package com.github.biomejs.intellijbiome.actions
 import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.BiomeIcons
 import com.github.biomejs.intellijbiome.services.BiomeServerService
-import com.github.biomejs.intellijbiome.services.BiomeServerService.Feature
 import com.github.biomejs.intellijbiome.settings.BiomeConfigurable
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
+import com.github.biomejs.intellijbiome.settings.Feature
 import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
