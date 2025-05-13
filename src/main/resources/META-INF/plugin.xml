@@ -86,7 +86,7 @@
     </action>
   </actions>
   <projectListeners>
-    <listener class="com.github.biomejs.intellijbiome.listeners.BiomeConfigListener"
+    <listener class="com.github.biomejs.intellijbiome.listeners.BiomeBulkFileListener"
               topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
   </projectListeners>
 </idea-plugin>

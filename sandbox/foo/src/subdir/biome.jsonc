@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "linter": {
+    "rules": {
+      "recommended": true,
+      "style": {
+        "useConst": "error"
+      }
+    }
+  }
+}

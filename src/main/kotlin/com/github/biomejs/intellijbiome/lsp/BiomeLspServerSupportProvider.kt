@@ -1,17 +1,19 @@
+@file:Suppress("UnstableApiUsage")
+
 package com.github.biomejs.intellijbiome.lsp
 
 import com.github.biomejs.intellijbiome.*
-import com.github.biomejs.intellijbiome.extensions.findNearestBiomeConfig
+import com.github.biomejs.intellijbiome.extensions.findBiomeConfigs
 import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.github.biomejs.intellijbiome.settings.BiomeConfigurable
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.project.guessProjectDir
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerDescriptor
+import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
@@ -21,49 +23,46 @@ import org.eclipse.lsp4j.ConfigurationItem
 import kotlin.io.path.Path
 
 
-@Suppress("UnstableApiUsage") class BiomeLspServerSupportProvider : LspServerSupportProvider {
+class BiomeLspServerSupportProvider : LspServerSupportProvider {
     override fun fileOpened(
         project: Project,
         file: VirtualFile,
         serverStarter: LspServerSupportProvider.LspServerStarter,
     ) {
-        val biome = BiomePackage(project)
-        val configPath = biome.configPath()
-
-        // Finds the root directory of a Biome workspace. It's typically the parent directory of `biome.json`.
-        // If no `biome.json` file found, nothing to do.
-        val projectRootDir = project.guessProjectDir() ?: return
-        val root = if (configPath.isNullOrEmpty()) {
-            file.findNearestBiomeConfig(projectRootDir)?.parent ?: return
+        val servers =
+            LspServerManager.getInstance(project).getServersForProvider(BiomeLspServerSupportProvider::class.java)
+        val roots = if (servers.isEmpty()) {
+            // it seems that the server is not started yet, so we need to find the root directories
+            project.findBiomeConfigs().map { it.parent }.distinct()
         } else {
-            // When using manual configuration, the root directory will be the project root.
-            projectRootDir
-        }
-
-        val roots = BiomeServerService.getInstance(project).getServer(file)?.let { server ->
-            server.descriptor.roots.toMutableList().apply {
-                if (!contains(root)) {
-                    // If the server is already running, add the new root directory to the list and stop the server.
-                    add(root)
+            servers.flatMap { it.descriptor.roots.toList() }.distinct().toMutableList().apply {
+                // If the server is already running, add the new root directory to the list and stop the server.
+                if (contains(file)) {
+                    add(file)
                     BiomeServerService.getInstance(project).stopBiomeServer()
                 }
             }
-        } ?: mutableListOf(root)
+        }
+
+        val biome = BiomePackage(project)
+        val configPath = biome.configPath()
 
         // Finds the Biome executable and check the version using CLI.
-        val executable = biome.binaryPath(root.path, file, false) ?: return
+        val executable = biome.binaryPath(file) ?: return
         val version = runBlocking { biome.versionNumber() }
         val descriptor = BiomeLspServerDescriptor(project, executable, version, configPath, roots.toTypedArray())
-
         serverStarter.ensureServerStarted(descriptor)
     }
 
-    override fun createLspServerWidgetItem(lspServer: LspServer,
-        currentFile: VirtualFile?) =
-        LspServerWidgetItem(lspServer, currentFile, BiomeIcons.BiomeIcon, BiomeConfigurable::class.java)
+    override fun createLspServerWidgetItem(
+        lspServer: LspServer,
+        currentFile: VirtualFile?
+    ): LspServerWidgetItem {
+        return LspServerWidgetItem(lspServer, currentFile, BiomeIcons.BiomeIcon, BiomeConfigurable::class.java)
+    }
 }
 
-@Suppress("UnstableApiUsage") private class BiomeLspServerDescriptor(
+internal class BiomeLspServerDescriptor(
     project: Project,
     executable: String,
     version: String?,
@@ -99,9 +98,6 @@ import kotlin.io.path.Path
 
     override fun findLocalFileByPath(path: String): VirtualFile? =
         super.findLocalFileByPath(targetRun.toLocalPath(path))
-
-    override val lspGoToDefinitionSupport = false
-    override val lspCompletionSupport = null
 
     override val lspFormattingSupport = object : LspFormattingSupport() {
         override fun shouldFormatThisFileExclusivelyByServer(

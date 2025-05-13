@@ -18,27 +18,12 @@ class BiomePackage(private val project: Project) {
     private val packageName = "@biomejs/biome"
     private val packageDescription = NodePackageDescriptor(packageName)
 
-    fun getPackage(virtualFile: VirtualFile?): NodePackage? {
-        if (virtualFile != null) {
-            val available = packageDescription.listAvailable(
-                project,
-                NodeJsInterpreterManager.getInstance(project).interpreter,
-                virtualFile,
-                false,
-                true
-            )
-            if (available.isNotEmpty()) {
-                return available[0]
-            }
-        }
-
-        var pkg = packageDescription.findUnambiguousDependencyPackage(project) ?: NodePackage.findDefaultPackage(
-            project,
-            packageName,
-            NodeJsInterpreterManager.getInstance(project).interpreter
-        )
-
-        return pkg
+    fun getPackage(contextFileOrDirectory: VirtualFile?): NodePackage? {
+        val interpreter = NodeJsInterpreterManager.getInstance(project).interpreter
+        val listAvailable = packageDescription.listAvailable(project, interpreter, contextFileOrDirectory, false, true)
+        return listAvailable.firstOrNull()
+            ?: packageDescription.findUnambiguousDependencyPackage(project)
+            ?: NodePackage.findDefaultPackage(project, packageName, interpreter)
     }
 
     fun configPath(): String? {
@@ -61,24 +46,20 @@ class BiomePackage(private val project: Project) {
         }
     }
 
-    fun binaryPath(
-        configPath: String?,
-        virtualFile: VirtualFile,
-        showVersion: Boolean,
-    ): String? {
+    fun binaryPath(virtualFile: VirtualFile?): String? {
         val settings = BiomeSettings.getInstance(project)
         val configurationMode = settings.configurationMode
         return when (configurationMode) {
             ConfigurationMode.DISABLED -> null // don't try to find the executable path if the configuration file does not exist.
             // This will prevent start LSP and formatting in case if biome is not used in the project.
-            ConfigurationMode.AUTOMATIC -> if (configPath != null || showVersion) findBiomeExecutable(virtualFile) else null // if configuration mode is manual, return the executable path if it is not empty string.
+            ConfigurationMode.AUTOMATIC -> findBiomeExecutable(virtualFile) // if configuration mode is manual, return the executable path if it is not empty string.
             // Otherwise, try to find the executable path.
             ConfigurationMode.MANUAL -> settings.executablePath
         }
     }
 
-    private fun findBiomeExecutable(virtualFile: VirtualFile?): String? {
-        val path = getPackage(virtualFile)?.getAbsolutePackagePathToRequire(project)
+    private fun findBiomeExecutable(contextFileOrDirectory: VirtualFile?): String? {
+        val path = getPackage(contextFileOrDirectory)?.getAbsolutePackagePathToRequire(project)
         if (path != null) {
             return Paths.get(path, "bin/biome").toString()
         }
@@ -92,12 +73,8 @@ class BiomePackage(private val project: Project) {
             return null
         }
 
-        val processHandler =
-            BiomeTargetRunBuilder(project)
-                .getBuilder(binaryPath)
-                .addParameters(listOf(ProcessCommandParameter.Value("--version")))
-                .build()
-                .startProcess()
+        val processHandler = BiomeTargetRunBuilder(project).getBuilder(binaryPath)
+            .addParameters(listOf(ProcessCommandParameter.Value("--version"))).build().startProcess()
 
         return runCatching {
             val result = runProcessFuture(processHandler).await()

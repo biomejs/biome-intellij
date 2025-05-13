@@ -6,7 +6,7 @@ import com.intellij.execution.process.ProcessEvent
 import com.intellij.execution.process.ProcessOutput
 import java.util.concurrent.CompletableFuture
 
-class ProcessResult( val processOutput: ProcessOutput)
+class ProcessResult(val processOutput: ProcessOutput)
 
 
 fun runProcessFuture(handler: OSProcessHandler): CompletableFuture<ProcessResult> {
