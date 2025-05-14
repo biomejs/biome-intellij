@@ -4,6 +4,7 @@ package com.github.biomejs.intellijbiome.services
 
 import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
+import com.github.biomejs.intellijbiome.settings.Feature
 import com.intellij.codeStyle.AbstractConvertLineSeparatorsAction
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
@@ -25,32 +26,14 @@ import java.util.*
 
 @Service(Service.Level.PROJECT)
 class BiomeServerService(private val project: Project) {
-    private val groupId = "Biome"
-
-    enum class Feature {
-        Format, ApplySafeFixes, SortImports
-    }
-
     companion object {
         fun getInstance(project: Project): BiomeServerService = project.getService(BiomeServerService::class.java)
     }
 
-    private fun getServer(file: VirtualFile): LspServerImpl? =
-        LspServerManager.getInstance(project).getServersForProvider(BiomeLspServerSupportProvider::class.java)
-            .firstOrNull { server -> server.descriptor.isSupportedFile(file) }
-            .let { it as? LspServerImpl }
+    private val groupId = "Biome"
 
-    suspend fun applySafeFixes(document: Document) {
-        executeFeatures(document, EnumSet.of(Feature.ApplySafeFixes))
-    }
-
-    suspend fun sortImports(document: Document) {
-        executeFeatures(document, EnumSet.of(Feature.SortImports))
-    }
-
-    suspend fun format(document: Document) {
-        executeFeatures(document, EnumSet.of(Feature.Format))
-    }
+    private val servers
+        get() = LspServerManager.getInstance(project).getServersForProvider(BiomeLspServerSupportProvider::class.java)
 
     fun restartBiomeServer() {
         LspServerManager.getInstance(project).stopAndRestartIfNeeded(BiomeLspServerSupportProvider::class.java)
@@ -60,13 +43,35 @@ class BiomeServerService(private val project: Project) {
         LspServerManager.getInstance(project).stopServers(BiomeLspServerSupportProvider::class.java)
     }
 
+    fun notifyRestart() {
+        NotificationGroupManager.getInstance().getNotificationGroup("Biome")
+            .createNotification(BiomeBundle.message("biome.language.server.restarted"),
+                "",
+                NotificationType.INFORMATION).notify(project)
+    }
+
+    suspend fun format(document: Document) {
+        executeFeatures(document, EnumSet.of(Feature.Format))
+    }
+
+    suspend fun applySafeFixes(document: Document) {
+        executeFeatures(document, EnumSet.of(Feature.ApplySafeFixes))
+    }
+
+    suspend fun sortImports(document: Document) {
+        executeFeatures(document, EnumSet.of(Feature.SortImports))
+    }
+
+    fun getServer(file: VirtualFile): LspServerImpl? =
+        servers.firstOrNull { server -> server.descriptor.isSupportedFile(file) }?.let { it as? LspServerImpl }
+
     suspend fun executeFeatures(document: Document,
         features: EnumSet<Feature>) {
         val manager = FileDocumentManager.getInstance()
         val file = manager.getFile(document) ?: return
         val server = getServer(file) ?: return
         val commandName = BiomeBundle.message("biome.run.biome.check.with.features",
-            features.joinToString(prefix = "(", postfix = ")") { it -> it.toString().lowercase() })
+            features.joinToString(prefix = "(", postfix = ")") { it.toString().lowercase() })
 
         if (features.contains(Feature.ApplySafeFixes) || features.contains(Feature.SortImports)) {
             if (features.contains(Feature.ApplySafeFixes)) {
@@ -125,11 +130,11 @@ class BiomeServerService(private val project: Project) {
 
             val formattingResults = server.sendRequest { it.textDocumentService.formatting(formattingParams) }
             if (formattingResults.isNullOrEmpty()) {
-                return;
+                return
             }
 
             // To avoid getting incorrect offsets, we need to run the text edits in a reversed order.
-            formattingResults.reverse();
+            formattingResults.reverse()
 
             val formattingAction = Runnable {
                 var lineSeparator: LineSeparator? = null
@@ -141,7 +146,6 @@ class BiomeServerService(private val project: Project) {
                         document.deleteString(range.startOffset, range.endOffset)
                     } else {
                         val normalizedText = StringUtil.convertLineSeparators(it.newText)
-
                         if (range.endOffset >= 0) {
                             if (range.length <= 0) {
                                 document.insertString(range.startOffset, normalizedText)
@@ -155,8 +159,8 @@ class BiomeServerService(private val project: Project) {
                         }
                     }
 
-                    StringUtil.detectSeparators(it.newText)?.apply {
-                        lineSeparator = this
+                    StringUtil.detectSeparators(it.newText)?.let {
+                        lineSeparator = it
                     }
                 }
 
@@ -177,24 +181,12 @@ class BiomeServerService(private val project: Project) {
         newSeparator: LineSeparator?,
     ): Boolean {
         if (newSeparator != null) {
-            val newSeparatorString: String = newSeparator.separatorString
-
+            val newSeparatorString = newSeparator.separatorString
             if (!StringUtil.equals(vFile.detectedLineSeparator, newSeparatorString)) {
                 AbstractConvertLineSeparatorsAction.changeLineSeparators(project, vFile, newSeparatorString)
                 return true
             }
         }
         return false
-    }
-
-    fun notifyRestart() {
-        NotificationGroupManager.getInstance()
-            .getNotificationGroup("Biome")
-            .createNotification(
-                BiomeBundle.message("biome.language.server.restarted"),
-                "",
-                NotificationType.INFORMATION
-            )
-            .notify(project)
     }
 }

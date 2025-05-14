@@ -1,6 +1,5 @@
 package com.github.biomejs.intellijbiome.settings
 
-import com.github.biomejs.intellijbiome.services.BiomeServerService.Feature
 import com.github.biomejs.intellijbiome.settings.BiomeSettingsState.Companion.DEFAULT_EXTENSION_LIST
 import com.intellij.openapi.components.*
 import com.intellij.openapi.project.Project

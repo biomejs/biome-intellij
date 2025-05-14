@@ -7,7 +7,6 @@ import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.intellij.ide.actionsOnSave.ActionsOnSaveConfigurable
 import com.intellij.lang.javascript.JavaScriptBundle
 import com.intellij.openapi.application.ApplicationNamesInfo
-import com.intellij.openapi.components.service
 import com.intellij.openapi.options.BoundSearchableConfigurable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogPanel
@@ -33,6 +32,8 @@ private const val HELP_TOPIC = "reference.settings.biome"
 
 class BiomeConfigurable(internal val project: Project) :
     BoundSearchableConfigurable(BiomeBundle.message("biome.settings.name"), HELP_TOPIC, CONFIGURABLE_ID) {
+    val biomeServerService = BiomeServerService.getInstance(project)
+
     lateinit var runFormatOnSaveCheckBox: JCheckBox
     lateinit var enableLspFormatCheckBox: JCheckBox
     lateinit var runSafeFixesOnSaveCheckBox: JCheckBox
@@ -44,8 +45,7 @@ class BiomeConfigurable(internal val project: Project) :
     private lateinit var extensionsField: JBTextField
 
     override fun createPanel(): DialogPanel {
-        val settings: BiomeSettings = BiomeSettings.getInstance(project)
-        val biomeServerService = project.service<BiomeServerService>()
+        val settings = BiomeSettings.getInstance(project)
 
         // *********************
         // Configuration mode row
@@ -200,8 +200,12 @@ class BiomeConfigurable(internal val project: Project) :
             }.enabledIf(!disabledConfiguration.selected)
 
             onApply {
-                biomeServerService.restartBiomeServer()
-                biomeServerService.notifyRestart()
+                if (BiomeSettings.getInstance(project).isEnabled()) {
+                    biomeServerService.restartBiomeServer()
+                    biomeServerService.notifyRestart()
+                } else {
+                    biomeServerService.stopBiomeServer()
+                }
             }
         }
     }
