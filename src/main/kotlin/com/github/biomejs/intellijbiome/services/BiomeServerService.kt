@@ -133,6 +133,7 @@ class BiomeServerService(private val project: Project) {
                 return
             }
 
+            // To avoid getting incorrect offsets, we need to run the text edits in a reversed order.
             formattingResults.reverse()
 
             val formattingAction = Runnable {
