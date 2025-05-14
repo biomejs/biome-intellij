@@ -10,6 +10,7 @@ import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerDescriptor
@@ -29,23 +30,29 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         file: VirtualFile,
         serverStarter: LspServerSupportProvider.LspServerStarter,
     ) {
-        val servers =
-            LspServerManager.getInstance(project).getServersForProvider(BiomeLspServerSupportProvider::class.java)
-        val roots = if (servers.isEmpty()) {
-            // it seems that the server is not started yet, so we need to find the root directories
-            project.findBiomeConfigs().map { it.parent }.distinct()
-        } else {
-            servers.flatMap { it.descriptor.roots.toList() }.distinct().toMutableList().apply {
-                // If the server is already running, add the new root directory to the list and stop the server.
-                if (contains(file)) {
-                    add(file)
-                    BiomeServerService.getInstance(project).stopBiomeServer()
-                }
-            }
-        }
 
         val biome = BiomePackage(project)
         val configPath = biome.configPath()
+
+        val roots = if (configPath.isNullOrEmpty()) {
+            val servers =
+                LspServerManager.getInstance(project).getServersForProvider(BiomeLspServerSupportProvider::class.java)
+            if (servers.isEmpty()) {
+                // it seems that the server is not started yet, so we need to find the root directories
+                project.findBiomeConfigs().map { it.parent }.distinct()
+            } else {
+                servers.flatMap { it.descriptor.roots.toList() }.distinct().toMutableList().apply {
+                    // If the server is already running, add the new root directory to the list and stop the server.
+                    if (contains(file)) {
+                        add(file)
+                        BiomeServerService.getInstance(project).stopBiomeServer()
+                    }
+                }
+            }
+        } else {
+            // When using manual configuration, the root directory will be the project root.
+            ProjectRootManager.getInstance(project).contentRoots.toList()
+        }
 
         // Finds the Biome executable and check the version using CLI.
         val executable = biome.binaryPath(file) ?: return

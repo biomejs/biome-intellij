@@ -10,6 +10,7 @@ import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
 import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
 import com.intellij.openapi.vfs.newvfs.events.*
@@ -34,12 +35,17 @@ class BiomeBulkFileListener(private val project: Project) : BulkFileListener {
         }
 
         if (isConfigChange) {
-            val roots = project.findBiomeConfigs().map { it.parent }.distinct()
-
             // Restart with updated root list
             val pkg = BiomePackage(project)
             val executable = pkg.binaryPath(null) ?: return
             val configPath = pkg.configPath()
+
+            val roots = if (configPath.isNullOrEmpty())  {
+                project.findBiomeConfigs().map { it.parent }.distinct()
+            } else {
+                // When using manual configuration, the root directory will be the project root.
+                ProjectRootManager.getInstance(project).contentRoots.toList()
+            }
 
             ApplicationManager.getApplication().executeOnPooledThread {
                 val version = runBlocking { BiomePackage(project).versionNumber() }
