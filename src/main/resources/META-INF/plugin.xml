@@ -85,8 +85,4 @@
       <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
     </action>
   </actions>
-  <projectListeners>
-    <listener class="com.github.biomejs.intellijbiome.listeners.BiomeConfigListener"
-              topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
-  </projectListeners>
 </idea-plugin>
