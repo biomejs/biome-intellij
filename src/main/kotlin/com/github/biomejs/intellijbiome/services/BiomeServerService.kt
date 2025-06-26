@@ -19,6 +19,7 @@ import com.intellij.platform.lsp.api.customization.LspIntentionAction
 import com.intellij.platform.lsp.impl.LspServerImpl
 import com.intellij.platform.lsp.util.getLsp4jRange
 import com.intellij.platform.lsp.util.getRangeInDocument
+import com.intellij.util.DocumentUtil
 import com.intellij.util.LineSeparator
 import org.eclipse.lsp4j.*
 import java.util.*
@@ -54,10 +55,6 @@ class BiomeServerService(private val project: Project) {
 
     fun restartBiomeServer() {
         LspServerManager.getInstance(project).stopAndRestartIfNeeded(BiomeLspServerSupportProvider::class.java)
-    }
-
-    fun stopBiomeServer() {
-        LspServerManager.getInstance(project).stopServers(BiomeLspServerSupportProvider::class.java)
     }
 
     suspend fun executeFeatures(document: Document,
@@ -166,7 +163,7 @@ class BiomeServerService(private val project: Project) {
             }
 
             WriteCommandAction.runWriteCommandAction(project, commandName, groupId, {
-                formattingAction.run()
+                DocumentUtil.executeInBulk(document, formattingAction)
             })
         }
     }
