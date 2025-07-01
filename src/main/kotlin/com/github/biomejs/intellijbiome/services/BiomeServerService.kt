@@ -71,7 +71,7 @@ class BiomeServerService(private val project: Project) {
                     getLsp4jRange(document, 0, document.textLength),
                     CodeActionContext().apply {
                         diagnostics = emptyList()
-                        only = listOf("quickfix.biome")
+                        only = listOf("source.fixAll.biome")
                         triggerKind = CodeActionTriggerKind.Automatic
                     })
 
