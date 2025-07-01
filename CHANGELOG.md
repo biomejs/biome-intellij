@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.8.0
+
+### Bug Fixes
+
+- Fixed that applying fixes on save can break the code in the editor ([#190](https://github.com/biomejs/biome-intellij/pull/190))
+
+### Features
+
+- Removed a file listener that watches changes to `biome.json(c)`, it is now handled by Biome itself ([#183](https://github.com/biomejs/biome-intellij/pull/183))
+- Improved performance on formatting ([#184](https://github.com/biomejs/biome-intellij/pull/184))
+
 ## 1.7.2
 
 ### Bug Fixes
