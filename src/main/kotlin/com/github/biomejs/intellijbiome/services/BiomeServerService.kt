@@ -76,21 +76,19 @@ class BiomeServerService(private val project: Project) {
                     })
 
                 val codeActionResults = server.sendRequest { it.textDocumentService.codeAction(codeActionParams) }
+                val codeActions = codeActionResults.orEmpty().mapNotNull { it.right }
+                val action = LspIntentionAction(server, mergeCodeActions(commandName, codeActions))
 
                 WriteCommandAction.runWriteCommandAction(project, commandName, groupId, {
-                    codeActionResults?.forEach {
-                        if (it.isRight) {
-                            val action = LspIntentionAction(server, it.right)
-                            if (action.isAvailable()) {
-                                action.invoke(null)
-                            }
-                        }
+                    if (action.isAvailable()) {
+                        action.invoke(file)
                     }
                 })
             }
 
             if (features.contains(Feature.SortImports)) {
-                val codeActionParams = CodeActionParams(server.getDocumentIdentifier(file),
+                val documentIdentifier = server.getDocumentIdentifier(file)
+                val codeActionParams = CodeActionParams(documentIdentifier,
                     getLsp4jRange(document, 0, document.textLength),
                     CodeActionContext().apply {
                         diagnostics = emptyList()
@@ -99,15 +97,12 @@ class BiomeServerService(private val project: Project) {
                     })
 
                 val codeActionResults = server.sendRequest { it.textDocumentService.codeAction(codeActionParams) }
+                val codeActions = codeActionResults.orEmpty().mapNotNull { it.right }
+                val action = LspIntentionAction(server, mergeCodeActions(commandName, codeActions))
 
                 WriteCommandAction.runWriteCommandAction(project, commandName, groupId, {
-                    codeActionResults?.forEach {
-                        if (it.isRight) {
-                            val action = LspIntentionAction(server, it.right)
-                            if (action.isAvailable()) {
-                                action.invoke(null)
-                            }
-                        }
+                    if (action.isAvailable()) {
+                        action.invoke(file)
                     }
                 })
             }
@@ -182,6 +177,22 @@ class BiomeServerService(private val project: Project) {
             }
         }
         return false
+    }
+
+    /// Merge the code actions into one to apply all workspace edits at once.
+    private fun mergeCodeActions(title: String, codeActions: List<CodeAction>): CodeAction {
+        val changes = mutableMapOf<String, MutableList<TextEdit>>()
+
+        codeActions
+            .filter { it.disabled == null }
+            .flatMap { it.edit.changes.entries }
+            .forEach {
+                changes.getOrPut(it.key) { mutableListOf() }.addAll(it.value)
+            }
+
+        return CodeAction(title).apply {
+            edit = WorkspaceEdit(changes)
+        }
     }
 
     fun notifyRestart() {
