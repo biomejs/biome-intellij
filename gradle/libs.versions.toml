@@ -4,7 +4,9 @@ junit = "4.13.2"
 
 # plugins
 intelliJPlatform = "2.6.0"
-kotlin = "2.2.0"
+# Keep it compatibile with the bundled Kotlin stdlib.
+# https://plugins.jetbrains.com/docs/intellij/using-kotlin.html#bundled-stdlib-versions
+kotlin = "2.0.21"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
