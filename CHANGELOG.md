@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.8.1
+
+### Bug Fixes
+
+- Resolved compatibility problems for older versions of IntelliJ IDEs ([#193](https://github.com/biomejs/biome-intellij/pull/193))
+
 ## 1.8.0
 
 ### Bug Fixes
