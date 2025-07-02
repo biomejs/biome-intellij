@@ -14,9 +14,9 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.customization.LspIntentionAction
-import com.intellij.platform.lsp.impl.LspServerImpl
 import com.intellij.platform.lsp.util.getLsp4jRange
 import com.intellij.platform.lsp.util.getRangeInDocument
 import com.intellij.util.DocumentUtil
@@ -36,10 +36,9 @@ class BiomeServerService(private val project: Project) {
         fun getInstance(project: Project): BiomeServerService = project.getService(BiomeServerService::class.java)
     }
 
-    private fun getServer(file: VirtualFile): LspServerImpl? =
+    private fun getServer(file: VirtualFile): LspServer? =
         LspServerManager.getInstance(project).getServersForProvider(BiomeLspServerSupportProvider::class.java)
             .firstOrNull { server -> server.descriptor.isSupportedFile(file) }
-            .let { it as? LspServerImpl }
 
     suspend fun applySafeFixes(document: Document) {
         executeFeatures(document, EnumSet.of(Feature.ApplySafeFixes))
