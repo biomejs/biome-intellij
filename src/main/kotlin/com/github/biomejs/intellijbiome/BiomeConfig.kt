@@ -16,12 +16,17 @@ data class BiomeConfig(
     companion object {
         @OptIn(ExperimentalSerializationApi::class)
         fun loadFromFile(file: VirtualFile): BiomeConfig? {
-            val json = Json { ignoreUnknownKeys = true }
-//            return try {
+            val json = Json {
+                allowComments = true
+                allowTrailingComma = true
+                ignoreUnknownKeys = true
+            }
+
+            return try {
                return json.decodeFromStream(file.inputStream)
-//            } catch (_: Throwable) {
-//                null
-//            }
+            } catch (_: Throwable) {
+                null
+            }
         }
     }
 }

@@ -1,7 +1,7 @@
 [versions]
 # libraries
 junit = "4.13.2"
-kotlinxSerialization = "1.7.3"
+kotlinxSerialization = "1.8.1"
 
 # plugins
 intelliJPlatform = "2.6.0"
