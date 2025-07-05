@@ -5,6 +5,7 @@ val remoteRobotVersion = "0.11.21"
 plugins {
   id("java") // Java support
   alias(libs.plugins.kotlin) // Kotlin support
+  alias(libs.plugins.kotlinxSerialization) // Kotlinx Serialization
   alias(libs.plugins.intelliJPlatform) // IntelliJ Platform Gradle Plugin
 }
 
@@ -28,6 +29,8 @@ repositories {
 
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
 dependencies {
+  implementation(libs.kotlinxSerialization)
+
   testImplementation(libs.junit)
   testImplementation("com.intellij.remoterobot:remote-robot:$remoteRobotVersion")
   testImplementation("com.intellij.remoterobot:remote-fixtures:$remoteRobotVersion")
