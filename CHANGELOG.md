@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.9.0
+
+### Bug Fixes
+
+- Support project structure with multiple roots ([#197](https://github.com/biomejs/biome-intellij/pull/197))
+
+### Features
+
+- Support the new-style monorepo ([#196](https://github.com/biomejs/biome-intellij/pull/196))
+
 ## 1.8.1
 
 ### Bug Fixes
