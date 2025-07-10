@@ -97,6 +97,12 @@ tasks {
   test {
     useJUnitPlatform()
   }
+
+  prepareSandbox {
+    from(layout.projectDirectory.dir("grit-vscode")) {
+      into(pluginName.map { "$it/grit-vscode" })
+    }
+  }
 }
 
 intellijPlatformTesting {

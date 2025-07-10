@@ -1,0 +1,200 @@
+{
+  "name": "grit-vscode",
+  "displayName": "Grit",
+  "description": "Grit is a code transformation tool.",
+  "version": "0.3.10",
+  "publisher": "grit",
+  "engines": {
+    "vscode": "^1.50.0"
+  },
+  "preview": true,
+  "license": "See license in LICENSE.md",
+  "homepage": "https://grit.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/getgrit/vscode.git"
+  },
+  "icon": "assets/grit_logo.png",
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Linters"
+  ],
+  "keywords": [
+    "grit",
+    "transformation",
+    "codemods",
+    "migration",
+    "javascript"
+  ],
+  "activationEvents": [
+    "onCommand:grit.applyNamedPattern",
+    "onLanguage:plaintext",
+    "onLanguage:javascript",
+    "onView:semanticSearch",
+    "onLanguage:rust",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:javascriptreact",
+    "onLanguage:python",
+    "onLanguage:json",
+    "onLanguage:jsonc",
+    "onLanguage:markdown",
+    "onLanguage:yaml",
+    "onLanguage:java",
+    "onLanguage:solidity",
+    "onLanguage:hcl",
+    "onLanguage:terraform",
+    "onLanguage:sql"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "grit",
+        "aliases": [
+          "grit"
+        ],
+        "extensions": [
+          ".grit",
+          ".unhack"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "scopeName": "markdown.grit.codeblock",
+        "path": "./syntaxes/grit.codeblock.json",
+        "injectTo": [
+          "text.html.markdown"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.grit": "grit"
+        }
+      },
+      {
+        "language": "grit",
+        "scopeName": "source.grit",
+        "path": "./dist/grit.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "grit.openPatternSelector",
+        "title": "Apply Pattern",
+        "category": "Grit"
+      },
+      {
+        "command": "grit.showDebugInfo",
+        "title": "Show Debug Info",
+        "category": "Grit"
+      },
+      {
+        "command": "grit.fixFile",
+        "title": "Fix File",
+        "category": "Grit"
+      },
+      {
+        "command": "grit.openSearch",
+        "title": "Search with GritQL",
+        "category": "Grit"
+      },
+      {
+        "command": "grit.restartServer",
+        "title": "Restart Language Server",
+        "category": "Grit"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "grit.openPatternSelector",
+          "when": "editorLangId == javascript || editorLangId == rust || editorLangId == typescript || editorLangId == typescriptreact || editorLangId == javascriptreact || editorLangId == python || editorLangId == json || editorLangId == jsonc || editorLangId == markdown || editorLangId == yaml || editorLangId == solidity || editorLangId == hcl || editorLangId == terraform || editorLangId == sql",
+          "group": "grit"
+        },
+        {
+          "command": "grit.fixFile",
+          "when": "editorLangId == javascript || editorLangId == rust || editorLangId == typescript || editorLangId == typescriptreact || editorLangId == javascriptreact || editorLangId == python || editorLangId == json || editorLangId == jsonc || editorLangId == markdown || editorLangId == yaml || editorLangId == solidity || editorLangId == hcl || editorLangId == terraform || editorLangId == sql",
+          "group": "grit"
+        },
+        {
+          "command": "grit.showDebugInfo",
+          "group": "grit"
+        }
+      ],
+      "view/item/context": []
+    },
+    "configuration": {
+      "type": "object",
+      "title": "LSP configuration",
+      "properties": {
+        "grit.authoring.test_matches": {
+          "scope": "application",
+          "type": "boolean",
+          "default": false,
+          "description": "Show live highlights for matches in Grit markdown files"
+        },
+        "grit.lsp.status": {
+          "scope": "application",
+          "type": "boolean",
+          "default": false,
+          "description": "Show language server status in the status bar"
+        },
+        "grit.lsp.binary": {
+          "scope": "window",
+          "type": "string",
+          "default": "grit",
+          "description": "The path to the grit binary hosting the language server."
+        },
+        "grit.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "verbose",
+          "description": "Traces the communication between VSCode and the language server."
+        }
+      }
+    },
+    "viewsContainers": {},
+    "views": {}
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn run build",
+    "build:typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:package": "rm -rf dist && esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "build": "yarn run build:typecheck && yarn run build:package",
+    "dev": "tsc -watch --preserveWatchOutput -p ./",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "postbuild": "cp ../../packages/universal/dist/ast/grit.tmLanguage.json ./dist/grit.tmLanguage.json",
+    "release": "vsce publish --yarn",
+    "load": "vsce package && code --install-extension grit-vscode-0.2.0.vsix",
+    "test": "yarn node node_modules/.bin/jest --runInBand --forceExit",
+    "test:ci": "yarn test"
+  },
+  "devDependencies": {
+    "@types/node": "^17.0.42",
+    "@types/vscode": "^1.50.0",
+    "@vscode/vsce": "^2.15.0",
+    "esbuild": "^0.16.9",
+    "@getgrit/sdk": "*",
+    "jest": "^29.3.1"
+  },
+  "dependencies": {
+    "@vscode/webview-ui-toolkit": "^1.2.0",
+    "typescript": "^5.0.3",
+    "vscode-languageclient": "^8.0.2",
+    "vscode-languageserver-protocol": "^3.17.2",
+    "@getgrit/universal": "*",
+    "@getgrit/api": "*",
+    "lodash": "^4.17.21"
+  },
+  "__metadata": {
+    "publisherDisplayName": "Grit"
+  }
+}
