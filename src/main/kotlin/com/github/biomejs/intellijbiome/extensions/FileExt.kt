@@ -32,11 +32,13 @@ fun VirtualFile.isBiomeConfigFile(): Boolean =
     configValidExtensions.map { "${configName}.$it" }.contains(this.name)
 
 fun VirtualFile.findNearestBiomeConfig(root: VirtualFile? = null): VirtualFile? =
-    this.findNearestFile(root) {
-        if (it.isBiomeConfigFile()) {
-            // Skip biome.json(c) files that includes `root: false` or `extends: //`
-            BiomeConfig.loadFromFile(it)?.isRootConfig() ?: false
-        } else {
-            false
-        }
-    }
+  this.findNearestFile(root) { file ->
+    // 1. Ignore files that are not Biome config files
+    if (!file.isBiomeConfigFile()) return@findNearestFile false
+
+    // 2. If called with a 'root' (submodule), accept the first one found
+    if (root != null) return@findNearestFile true
+
+    // 3. If not called with a 'root' (full monorepo), continue requiring it to be a root config
+    BiomeConfig.loadFromFile(file)?.isRootConfig() ?: false
+  }
