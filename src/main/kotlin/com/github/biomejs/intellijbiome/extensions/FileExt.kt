@@ -13,11 +13,13 @@ private fun VirtualFile.findNearestFile(
     predicate: (file: VirtualFile) -> Boolean,
 ): VirtualFile? {
     var cur = this.parent
-    while (cur != null && VfsUtil.isUnder(cur, mutableSetOf(root))) {
-        val f = cur.children.find(predicate)
-        if (f != null) {
-            return f
+    while (cur != null) {
+        cur.children.find(predicate)?.let { return it }
+
+        if (root != null && cur == root) {
+            break
         }
+
         cur = cur.parent
     }
     return null
