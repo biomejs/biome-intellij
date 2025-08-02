@@ -29,12 +29,17 @@ private val configValidExtensions = listOf("json", "jsonc")
 fun VirtualFile.isBiomeConfigFile(): Boolean =
     configValidExtensions.map { "${configName}.$it" }.contains(this.name)
 
-fun VirtualFile.findNearestBiomeConfig(root: VirtualFile? = null): VirtualFile? =
-    this.findNearestFile(root) {
-        if (it.isBiomeConfigFile()) {
+fun VirtualFile.findNearestBiomeConfig(root: VirtualFile? = null, onlyRootConfig: Boolean = true): VirtualFile? =
+    this.findNearestFile(root) { file ->
+        if (file.isBiomeConfigFile()) {
             // Skip biome.json(c) files that includes `root: false` or `extends: //`
-            BiomeConfig.loadFromFile(it)?.isRootConfig() ?: false
+            BiomeConfig.loadFromFile(file)?.let { !onlyRootConfig || it.isRootConfig() } ?: false
         } else {
             false
         }
+    } ?: if (onlyRootConfig) {
+        // If no root config was found, fallback to any nearest nested (child) config.
+        this.findNearestBiomeConfig(root, false)
+    } else {
+        null
     }
