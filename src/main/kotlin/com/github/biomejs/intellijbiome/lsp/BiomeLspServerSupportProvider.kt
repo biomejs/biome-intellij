@@ -13,12 +13,14 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerDescriptor
 import com.intellij.platform.lsp.api.LspServerSupportProvider
+import com.intellij.platform.lsp.api.customization.LspDiagnosticsSupport
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import kotlin.io.path.Path
 import kotlinx.coroutines.runBlocking
 import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.ConfigurationItem
+import org.eclipse.lsp4j.Diagnostic
 
 
 @Suppress("UnstableApiUsage") class BiomeLspServerSupportProvider : LspServerSupportProvider {
@@ -108,6 +110,14 @@ import org.eclipse.lsp4j.ConfigurationItem
             val settings = BiomeSettings.getInstance(project)
             return settings.enableLspFormat
         }
+    }
+
+    override val lspDiagnosticsSupport = object : LspDiagnosticsSupport() {
+        override fun getMessage(diagnostic: Diagnostic) =
+            "Biome: ${diagnostic.message} (${diagnostic.code.left})"
+
+        override fun getTooltip(diagnostic: Diagnostic) =
+            getMessage(diagnostic)
     }
 
     override val clientCapabilities: ClientCapabilities
