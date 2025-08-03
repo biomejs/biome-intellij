@@ -4,7 +4,7 @@ junit = "4.13.2"
 kotlinxSerialization = "1.8.1"
 
 # plugins
-intelliJPlatform = "2.6.0"
+intelliJPlatform = "2.7.0"
 # Keep it compatibile with the bundled Kotlin stdlib.
 # https://plugins.jetbrains.com/docs/intellij/using-kotlin.html#bundled-stdlib-versions
 kotlin = "2.0.21"
