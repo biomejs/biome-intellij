@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.10.0
+
+### Bug Fixes
+
+- Revert a change to use `DocumentUtil.executeInBulk` ([#208](https://github.com/biomejs/biome-intellij/pull/208))
+- Fallback to child config when no root config was found in the project ([#210](https://github.com/biomejs/biome-intellij/pull/210))
+
+### Features
+
+- Improve diagnostics message ([#209](https://github.com/biomejs/biome-intellij/pull/209))
+
 ## 1.9.0
 
 ### Bug Fixes
