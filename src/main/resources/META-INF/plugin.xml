@@ -41,6 +41,7 @@
 
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.modules.ultimate</depends>
+  <depends>org.jetbrains.plugins.textmate</depends>
   <depends>JavaScript</depends>
 
   <resource-bundle>messages.BiomeBundle</resource-bundle>
@@ -64,6 +65,7 @@
                   implementation="com.github.biomejs.intellijbiome.actions.BiomeCheckOnSaveAction"
                   order="first, before FormatOnSaveAction"/>
     />
+    <textmate.bundleProvider implementation="com.github.biomejs.intellijbiome.textmate.GritTextMateBundleProvider" />
   </extensions>
   <actions>
     <action
