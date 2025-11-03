@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.10.1
+
+### Bug Fixes
+
+- Resolve the `extends` option in the config correctly ([#214](https://github.com/biomejs/biome/pull/214))
+
 ## 1.10.0
 
 ### Bug Fixes
