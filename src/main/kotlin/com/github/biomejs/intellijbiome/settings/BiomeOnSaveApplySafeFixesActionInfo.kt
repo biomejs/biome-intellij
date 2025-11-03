@@ -10,16 +10,19 @@ class BiomeOnSaveApplySafeFixesActionInfo(actionOnSaveContext: ActionOnSaveConte
         BiomeConfigurable.CONFIGURABLE_ID,
         BiomeConfigurable::class.java) {
 
+    private val settings
+        get() = BiomeSettings.getInstance(project)
+
     override fun getActionOnSaveName() =
         BiomeBundle.message("biome.apply.safe.fixes.on.save.checkbox.on.actions.on.save.page")
 
     override fun isApplicableAccordingToStoredState(): Boolean =
-        BiomeSettings.getInstance(project).configurationMode != ConfigurationMode.DISABLED
+        settings.configurationMode != ConfigurationMode.DISABLED
 
     override fun isApplicableAccordingToUiState(configurable: BiomeConfigurable): Boolean =
         !configurable.disabledConfiguration.isSelected
 
-    override fun isActionOnSaveEnabledAccordingToStoredState() = BiomeSettings.getInstance(project).applySafeFixesOnSave
+    override fun isActionOnSaveEnabledAccordingToStoredState() = settings.applySafeFixesOnSave
 
     override fun isActionOnSaveEnabledAccordingToUiState(configurable: BiomeConfigurable) =
         configurable.runSafeFixesOnSaveCheckBox.isSelected
@@ -32,7 +35,7 @@ class BiomeOnSaveApplySafeFixesActionInfo(actionOnSaveContext: ActionOnSaveConte
     override fun getActionLinks() = listOf(createGoToPageInSettingsLink(BiomeConfigurable.CONFIGURABLE_ID))
 
     override fun getCommentAccordingToStoredState(): ActionOnSaveComment? {
-        if (BiomeSettings.getInstance(project).configurationMode == ConfigurationMode.DISABLED) {
+        if (settings.configurationMode == ConfigurationMode.DISABLED) {
             return ActionInfo.disabled()
         }
 

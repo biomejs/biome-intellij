@@ -12,16 +12,19 @@ class BiomeOnSaveFormatActionInfo(actionOnSaveContext: ActionOnSaveContext) :
         BiomeConfigurable::class.java
     ) {
 
+    private val settings
+        get() = BiomeSettings.getInstance(project)
+
     override fun getActionOnSaveName() =
         BiomeBundle.message("biome.format.on.save.checkbox.on.actions.on.save.page")
 
     override fun isApplicableAccordingToStoredState(): Boolean =
-        BiomeSettings.getInstance(project).configurationMode != ConfigurationMode.DISABLED
+        settings.configurationMode != ConfigurationMode.DISABLED && !settings.enableLspFormat
 
-    override fun isActionOnSaveEnabledAccordingToStoredState() = BiomeSettings.getInstance(project).formatOnSave
+    override fun isActionOnSaveEnabledAccordingToStoredState() = settings.formatOnSave
 
     override fun isApplicableAccordingToUiState(configurable: BiomeConfigurable): Boolean =
-        !configurable.disabledConfiguration.isSelected
+        !configurable.disabledConfiguration.isSelected && !configurable.enableLspFormatCheckBox.isSelected
 
     override fun isActionOnSaveEnabledAccordingToUiState(configurable: BiomeConfigurable) =
         configurable.runFormatOnSaveCheckBox.isSelected
@@ -34,8 +37,12 @@ class BiomeOnSaveFormatActionInfo(actionOnSaveContext: ActionOnSaveContext) :
     override fun getActionLinks() = listOf(createGoToPageInSettingsLink(BiomeConfigurable.CONFIGURABLE_ID))
 
     override fun getCommentAccordingToStoredState(): ActionOnSaveComment? {
-        if (BiomeSettings.getInstance(project).configurationMode == ConfigurationMode.DISABLED) {
+        if (settings.configurationMode == ConfigurationMode.DISABLED) {
             return ActionInfo.disabled()
+        }
+
+        if (settings.enableLspFormat) {
+            return ActionInfo.lspFormattingIsEnabled()
         }
 
         return null
@@ -44,6 +51,10 @@ class BiomeOnSaveFormatActionInfo(actionOnSaveContext: ActionOnSaveContext) :
     override fun getCommentAccordingToUiState(configurable: BiomeConfigurable): ActionOnSaveComment? {
         if (configurable.disabledConfiguration.isSelected) {
             return ActionInfo.disabled()
+        }
+
+        if (configurable.enableLspFormatCheckBox.isSelected) {
+            return ActionInfo.lspFormattingIsEnabled()
         }
 
         return null
