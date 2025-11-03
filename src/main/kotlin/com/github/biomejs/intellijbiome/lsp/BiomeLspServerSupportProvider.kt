@@ -23,7 +23,7 @@ import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.Diagnostic
 
 
-@Suppress("UnstableApiUsage") class BiomeLspServerSupportProvider : LspServerSupportProvider {
+class BiomeLspServerSupportProvider : LspServerSupportProvider {
     override fun fileOpened(
         project: Project,
         file: VirtualFile,
@@ -57,7 +57,7 @@ import org.eclipse.lsp4j.Diagnostic
         LspServerWidgetItem(lspServer, currentFile, BiomeIcons.BiomeIcon, BiomeConfigurable::class.java)
 }
 
-@Suppress("UnstableApiUsage") private class BiomeLspServerDescriptor(
+private class BiomeLspServerDescriptor(
     project: Project,
     root: VirtualFile,
     executable: String,

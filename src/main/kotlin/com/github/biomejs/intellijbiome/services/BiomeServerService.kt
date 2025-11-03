@@ -1,5 +1,3 @@
-@file:Suppress("UnstableApiUsage")
-
 package com.github.biomejs.intellijbiome.services
 
 import com.github.biomejs.intellijbiome.BiomeBundle
