@@ -10,5 +10,3 @@ jobs:
   build:
     name: Build
     uses: ./.github/workflows/_build.yaml
-    with:
-      artifact: true
