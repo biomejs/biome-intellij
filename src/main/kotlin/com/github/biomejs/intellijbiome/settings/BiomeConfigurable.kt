@@ -168,7 +168,9 @@ class BiomeConfigurable(internal val project: Project) :
 
                 val link = ActionsOnSaveConfigurable.createGoToActionsOnSavePageLink()
                 cell(link)
-            }.enabledIf(!disabledConfiguration.selected)
+            }
+                .enabledIf(!disabledConfiguration.selected)
+                .visibleIf(!enableLspFormatCheckBox.selected)
 
             // *********************
             // Apply safe fixes on save row
