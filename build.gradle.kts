@@ -1,6 +1,7 @@
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 val remoteRobotVersion = "0.11.21"
+val testPlatformKotlinVersion = "2.2.20"
 
 plugins {
   id("java") // Java support
@@ -30,6 +31,7 @@ repositories {
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
 dependencies {
   implementation(libs.kotlinxSerialization)
+  testImplementation(enforcedPlatform("org.jetbrains.kotlin:kotlin-bom:$testPlatformKotlinVersion"))
 
   testImplementation(libs.junit)
   testImplementation("com.intellij.remoterobot:remote-robot:$remoteRobotVersion")
@@ -43,7 +45,9 @@ dependencies {
 
   // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
   intellijPlatform {
-    create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
+    create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion")) {
+      useInstaller = false
+    }
 
     // Plugin Dependencies. Uses `platformBundledPlugins` property from the gradle.properties file for bundled IntelliJ Platform plugins.
     bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(',') })
