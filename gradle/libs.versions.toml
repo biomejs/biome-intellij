@@ -4,10 +4,10 @@ junit = "4.13.2"
 kotlinxSerialization = "1.9.0"
 
 # plugins
-intelliJPlatform = "2.10.4"
+intelliJPlatform = "2.13.1"
 # Keep it compatibile with the bundled Kotlin stdlib.
 # https://plugins.jetbrains.com/docs/intellij/using-kotlin.html#bundled-stdlib-versions
-kotlin = "2.1.10"
+kotlin = "2.2.20"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
