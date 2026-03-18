@@ -17,6 +17,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Computable
 import com.intellij.util.io.BaseOutputReader
+import java.io.File
 import kotlin.io.path.Path
 
 /**
@@ -91,6 +92,7 @@ class BiomeTargetRunBuilder(val project: Project) {
             NodeProcessCommandBuilder(project, interpreter)
         }
 
-        return builder.setExecutable(executable).setWorkingDirectory(project.basePath).setCharset(Charsets.UTF_8)
+        val workingDirectory = project.basePath?.takeIf { File(it).exists() }
+        return builder.setExecutable(executable).setWorkingDirectory(workingDirectory).setCharset(Charsets.UTF_8)
     }
 }

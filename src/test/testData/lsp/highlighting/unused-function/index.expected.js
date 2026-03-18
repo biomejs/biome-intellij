@@ -1,0 +1,1 @@
+function <warning descr="Biome: This function broken is unused. (lint/correctness/noUnusedVariables)">broken</warning>(<warning descr="Biome: This parameter is unused. (lint/correctness/noUnusedFunctionParameters)">param</warning>) {}

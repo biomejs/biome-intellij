@@ -131,7 +131,7 @@ private class BiomeLspServerDescriptor(
         }
 
         return BiomeLspWorkspaceSettings().apply {
-            configurationPath = configPath
+            configurationPath = configPath?.takeIf { it.isNotBlank() }
         }
     }
 }
