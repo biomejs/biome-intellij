@@ -36,8 +36,11 @@ dependencies {
   testImplementation(libs.junit)
   testImplementation("com.intellij.remoterobot:remote-robot:$remoteRobotVersion")
   testImplementation("com.intellij.remoterobot:remote-fixtures:$remoteRobotVersion")
+  // Remote Robot still brings an older Gson that breaks package.json parsing and the LSP JSON adapter at runtime.
+  testImplementation("com.google.code.gson:gson:2.11.0")
   testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
   testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
+  testRuntimeOnly("org.junit.vintage:junit-vintage-engine:5.10.0")
   testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.9.3")
 
   // Logging Network Calls
