@@ -1,0 +1,12 @@
+`namedColors = { $colors }` where {
+	$keys = "",
+	$values = [],
+	$colors <: some bubble($keys, $values) `$name: $color` where {
+		// Push the name onto the string
+		$keys += $name,
+		// Push the values onto the list
+		$values += `$color`
+	},
+	// Join the values together to make a string
+	$new_colors = join(list=$values, separator=", ")
+} => `$keys = [ $new_colors ]`
