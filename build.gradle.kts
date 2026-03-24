@@ -34,6 +34,8 @@ dependencies {
   testImplementation(enforcedPlatform("org.jetbrains.kotlin:kotlin-bom:$testPlatformKotlinVersion"))
 
   testImplementation(libs.junit)
+  // TODO:
+  //  Warning:(37, 22)  Provides transitive vulnerable dependency maven:org.assertj:assertj-core:3.17.2 CVE-2026-24400 7.3 AssertJ has XML External Entity (XXE) vulnerability when parsing untrusted XML via isXmlEqualTo assertion  Results powered by Mend.io
   testImplementation("com.intellij.remoterobot:remote-robot:$remoteRobotVersion")
   testImplementation("com.intellij.remoterobot:remote-fixtures:$remoteRobotVersion")
   // Remote Robot still brings an older Gson that breaks package.json parsing and the LSP JSON adapter at runtime.
@@ -49,6 +51,7 @@ dependencies {
   // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
   intellijPlatform {
     create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion")) {
+      // TODO: consider using the installer release and drop the below line
       useInstaller = false
     }
 
@@ -58,8 +61,6 @@ dependencies {
     // Plugin Dependencies. Uses `platformPlugins` property from the gradle.properties file for plugin from JetBrains Marketplace.
     plugins(providers.gradleProperty("platformPlugins").map { it.split(',') })
 
-    pluginVerifier()
-    zipSigner()
     testFramework(TestFrameworkType.Platform)
   }
 }
@@ -71,7 +72,6 @@ intellijPlatform {
 
     ideaVersion {
       sinceBuild = providers.gradleProperty("pluginSinceBuild")
-      untilBuild = providers.gradleProperty("pluginUntilBuild")
     }
   }
 
@@ -85,8 +85,8 @@ intellijPlatform {
     token = providers.environmentVariable("PUBLISH_TOKEN")
     // The pluginVersion is based on the SemVer (https://semver.org) and supports pre-release labels, like 2.1.7-alpha.3
     // Specify pre-release label to publish the plugin in a custom Release Channel automatically. Read more:
-    // https://plugins.jetbrains.com/docs/intellij/deployment.html#specifying-a-release-channel
-    channels = providers.gradleProperty("pluginVersion").map { listOf(it.split('-').getOrElse(1) { "default" }.split('.').first()) }
+        // https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html#specifying-a-release-channel
+        channels = providers.gradleProperty("pluginVersion").map { listOf(it.substringAfter('-', "").substringBefore('.').ifEmpty { "default" }) }
   }
 
   pluginVerification {
