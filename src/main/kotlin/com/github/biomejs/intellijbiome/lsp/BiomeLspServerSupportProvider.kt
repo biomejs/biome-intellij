@@ -85,6 +85,18 @@ private class BiomeLspServerDescriptor(
             && roots.any { root -> file.toNioPath().startsWith(root.toNioPath()) }
     }
 
+    // IntelliJ falls back to the file extension as the language ID, which Biome doesn't
+    // recognize for these extensions. Use the language IDs that Biome expects instead.
+    override fun getLanguageId(file: VirtualFile): String =
+        when (file.extension?.lowercase()) {
+            "htm" -> "html"
+            "svg" -> "xml"
+            "gs" -> "javascript"
+            "md" -> "markdown"
+            "yml" -> "yaml"
+            else -> super.getLanguageId(file)
+        }
+
     override fun createCommandLine(): GeneralCommandLine {
         throw RuntimeException("Not expected to be called because startServerProcess() is overridden")
     }
