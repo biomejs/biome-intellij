@@ -25,8 +25,9 @@ class BiomeSettingsState : BaseState() {
 
     companion object {
         val DEFAULT_EXTENSION_LIST = listOf(
-            ".astro", ".css", ".gql", ".graphql", ".js", ".mjs", ".cjs", ".jsx",
-            ".json", ".jsonc", ".svelte", ".html", ".ts", ".mts", ".cts", ".tsx", ".vue"
+            ".astro", ".css", ".scss", ".gql", ".graphql", ".js", ".mjs", ".cjs", ".jsx", ".gs",
+            ".json", ".jsonc", ".svelte", ".html", ".htm", ".svg", ".ts", ".mts", ".cts", ".tsx", ".vue",
+            ".md", ".markdown", ".yml", ".yaml"
         )
     }
 }

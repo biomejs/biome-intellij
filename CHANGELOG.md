@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Added support for Markdown, YAML, SCSS, and `.gs` files.
+
 ## 1.10.1
 
 ### Bug Fixes
