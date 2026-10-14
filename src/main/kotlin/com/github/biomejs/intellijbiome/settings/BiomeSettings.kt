@@ -5,7 +5,6 @@ import com.github.biomejs.intellijbiome.settings.BiomeSettingsState.Companion.DE
 import com.intellij.openapi.components.*
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import java.io.File
 import java.util.*
 
 
@@ -21,11 +20,6 @@ class BiomeSettings :
     var configPath: String
         get() = state.configPath ?: ""
         set(value) {
-            val file = File(value)
-            if (file.isFile) {
-                state.configPath = file.parentFile.path
-                return
-            }
             state.configPath = value
         }
 
