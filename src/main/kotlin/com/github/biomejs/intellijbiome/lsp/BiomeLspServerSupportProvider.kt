@@ -17,6 +17,7 @@ import com.intellij.platform.lsp.api.customization.LspDiagnosticsSupport
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import kotlin.io.path.Path
+import kotlin.io.path.isRegularFile
 import kotlinx.coroutines.runBlocking
 import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.ConfigurationItem
@@ -69,11 +70,13 @@ private class BiomeLspServerDescriptor(
             .getBuilder(executable)
             .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
 
-        // Backward compatibility for v1; `--config-path` is no longer available in v2
+        // Backward compatibility for v1; `--config-path` is no longer available in v2.
+        // Older v1 releases only accept the directory containing the configuration file.
         if (version != null && version.startsWith("1.") && !configPath.isNullOrEmpty()) {
+            val path = Path(configPath)
             builder = builder.addParameters(listOf(
                 ProcessCommandParameter.Value("--config-path"),
-                ProcessCommandParameter.FilePath(Path(configPath))
+                ProcessCommandParameter.FilePath(if (path.isRegularFile()) path.parent else path)
             ))
         }
 
@@ -84,6 +87,18 @@ private class BiomeLspServerDescriptor(
         return BiomeSettings.getInstance(project).fileSupported(file)
             && roots.any { root -> file.toNioPath().startsWith(root.toNioPath()) }
     }
+
+    // IntelliJ falls back to the file extension as the language ID, which Biome doesn't
+    // recognize for these extensions. Use the language IDs that Biome expects instead.
+    override fun getLanguageId(file: VirtualFile): String =
+        when (file.extension?.lowercase()) {
+            "htm" -> "html"
+            "svg" -> "xml"
+            "gs" -> "javascript"
+            "md" -> "markdown"
+            "yml" -> "yaml"
+            else -> super.getLanguageId(file)
+        }
 
     override fun createCommandLine(): GeneralCommandLine {
         throw RuntimeException("Not expected to be called because startServerProcess() is overridden")

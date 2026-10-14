@@ -1,0 +1,8 @@
+{
+  "com.github.biomejs.intellijbiome.settings.BiomeConfigurableDefaultProjectTest": [
+    "testApplyOnDefaultProjectDoesNotRestartServer"
+  ],
+  "com.github.biomejs.intellijbiome.settings.BiomeSettingsTest": [
+    "testConfigPathKeepsConfigurationFile"
+  ]
+}

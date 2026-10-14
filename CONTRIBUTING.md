@@ -31,13 +31,36 @@ plugin loaded.
 ./gradlew runIde
 ```
 
-### Running tests
+### Plugin regression tests
 
-To run the plugin's tests, run the `test` Gradle task.
+On Linux x64, install Node.js 24 and pnpm 10.5.2 through Corepack before running
+the headless plugin and LSP regression tests:
+
+```sh
+corepack enable
+corepack prepare pnpm@10.5.2 --activate
+python3 .github/scripts/test-check-required-tests.py
+python3 .github/scripts/run-required-tests.py
+python3 .github/scripts/check-required-tests.py build/test-results/test
+```
+
+The runner removes old test reports and selects the classes listed in
+`.github/required-tests/*.json`. Each file maps fully qualified class names to
+required test method names. Give each change its own inventory file so independent
+PRs can add coverage without editing a shared list. The report checker rejects
+missing, skipped or failed tests and malformed reports.
+
+The Gradle test task uses the SDK's JetBrains Runtime and a separate Biome cache
+for each checkout. Remote Robot UI tests require a running IDE and remain outside
+this regression command.
+
+### Remote Robot UI tests
+
+The Remote Robot suite needs the UI test IDE running in another process:
 
 ```shell
 ./gradlew runIdeForUiTests &
-./gradlew test
+./gradlew test --tests com.github.biomejs.intellijbiome.BasicProjectNpmTest
 ```
 
 ## Making changes
@@ -85,25 +108,3 @@ This section is for maintainers only. It describes the process for releasing a n
 3. Commit and push your changes.
 4. Run the [`Publish`](https://github.com/biomejs/biome-intellij/actions/workflows/publish.yaml) workflow manually from
    the Actions tab in GitHub (check _nightly_).
-
-### Plugin regression tests
-
-Install Node.js 24 and pnpm 10.5.2 through Corepack before running LSP tests:
-
-```sh
-corepack enable
-corepack prepare pnpm@10.5.2 --activate
-python3 .github/scripts/test-check-required-tests.py
-python3 .github/scripts/run-required-tests.py
-python3 .github/scripts/check-required-tests.py build/test-results/test
-```
-
-The runner removes old test reports and selects the classes listed in
-`.github/required-tests/*.json`. Each file maps fully qualified class names to
-required test method names. Give each change its own inventory file so independent
-PRs can add coverage without editing a shared list. The report checker rejects
-missing, skipped or failed tests and malformed reports.
-
-The Gradle test task uses the SDK's JetBrains Runtime and a separate Biome cache
-for each checkout. Remote Robot UI tests require a running IDE and remain outside
-this regression command.
