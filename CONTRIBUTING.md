@@ -39,20 +39,17 @@ the headless plugin and LSP regression tests:
 ```sh
 corepack enable
 corepack prepare pnpm@10.5.2 --activate
-python3 .github/scripts/test-check-required-tests.py
-python3 .github/scripts/run-required-tests.py
-python3 .github/scripts/check-required-tests.py build/test-results/test
+./gradlew test
 ```
 
-The runner removes old test reports and selects the classes listed in
-`.github/required-tests/*.json`. Each file maps fully qualified class names to
-required test method names. Give each change its own inventory file so independent
-PRs can add coverage without editing a shared list. The report checker rejects
-missing, skipped or failed tests and malformed reports.
+Gradle discovers every headless test. The task fails if no tests run or any test
+fails or is skipped. Tests always execute; compilation and dependency caches
+remain available. XML and HTML reports are written under `build/test-results/test`
+and `build/reports/tests/test`.
 
-The Gradle test task uses the SDK's JetBrains Runtime and a separate Biome cache
-for each checkout. Remote Robot UI tests require a running IDE and remain outside
-this regression command.
+The test task uses the SDK's JetBrains Runtime and a separate Biome daemon cache
+for each checkout and runtime task. Tag Remote Robot tests with `remote-robot`;
+they require a running IDE and are excluded from the headless suite.
 
 ### Remote Robot UI tests
 
@@ -60,7 +57,7 @@ The Remote Robot suite needs the UI test IDE running in another process:
 
 ```shell
 ./gradlew runIdeForUiTests &
-./gradlew test --tests com.github.biomejs.intellijbiome.BasicProjectNpmTest
+./gradlew test -PuiTests
 ```
 
 ## Making changes

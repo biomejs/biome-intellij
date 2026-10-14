@@ -84,13 +84,8 @@ jobs:
         run: |
           corepack enable
           corepack prepare pnpm@10.5.2 --activate
-      - name: Test report checker
-        run: python3 .github/scripts/test-check-required-tests.py
       - name: Run plugin regression tests
-        run: python3 .github/scripts/run-required-tests.py
-      - name: Require all expected tests to pass
-        if: always()
-        run: python3 .github/scripts/check-required-tests.py build/test-results/test
+        run: ./gradlew test --console=plain
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

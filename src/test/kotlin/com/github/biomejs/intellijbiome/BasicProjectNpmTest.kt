@@ -10,6 +10,7 @@ import com.intellij.remoterobot.utils.waitForIgnoringError
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.awt.Point
@@ -17,6 +18,7 @@ import java.io.File
 import java.time.Duration.ofMinutes
 
 
+@Tag("remote-robot")
 @ExtendWith(RemoteRobotExtension::class)
 class BasicProjectNpmTest {
 
