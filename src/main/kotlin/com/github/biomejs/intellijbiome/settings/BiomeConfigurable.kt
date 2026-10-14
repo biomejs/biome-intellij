@@ -200,6 +200,9 @@ class BiomeConfigurable(internal val project: Project) :
             }.enabledIf(!disabledConfiguration.selected)
 
             onApply {
+                // The default project (Welcome screen / "Settings for New Projects") has no language servers to restart.
+                if (project.isDefault) return@onApply
+
                 biomeServerService.restartBiomeServer()
                 biomeServerService.notifyRestart()
             }
