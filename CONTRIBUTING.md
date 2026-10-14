@@ -13,7 +13,7 @@ Please review the following guidelines before making your contribution.
 
 Ensure that you have the following tools installed on your machine:
 
-- Java development kit (JDK) 17
+- Java development kit (JDK) 21
 - IntelliJ IDEA Ultimate Edition
 - git-cliff (_maintainers only_)
 
