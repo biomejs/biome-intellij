@@ -46,32 +46,43 @@ fun CodeInsightTestFixture.checkBiomeHighlightingSnapshot(filePath: String, expe
         init()
     }
 
-    configureFromExistingVirtualFile(file)
-    waitUntilFileOpenedByLspServer(project, file, BIOME_LSP_DESCRIPTOR_CLASS_NAME)
-
     // Biome sometimes misses the first diagnostics push in this harness, so fall back to
     // reopening the file and then forcing a minimal didChange if the initial check still times out.
+    // Each check subscribes before its trigger so fast diagnostics are retained as well.
+    var initialOpenCompleted = false
     runCatching {
         checkLspHighlightingForData(
             expectedHighlightingData,
             descriptorClassName = BIOME_LSP_DESCRIPTOR_CLASS_NAME,
             initialTimeout = 10,
-        )
+            targetFile = file,
+        ) {
+            configureFromExistingVirtualFile(file)
+            waitUntilFileOpenedByLspServer(project, file, BIOME_LSP_DESCRIPTOR_CLASS_NAME)
+            initialOpenCompleted = true
+        }
+    }.onFailure {
+        // Opening/startup failures were never eligible for the diagnostics recovery sequence.
+        if (!initialOpenCompleted) throw it
     }.recoverCatching {
-        reopenFileAfterServerSetup(file)
-        waitUntilFileOpenedByLspServer(project, file, BIOME_LSP_DESCRIPTOR_CLASS_NAME)
         checkLspHighlightingForData(
             expectedHighlightingData,
             descriptorClassName = BIOME_LSP_DESCRIPTOR_CLASS_NAME,
             initialTimeout = 10,
-        )
+            targetFile = file,
+        ) {
+            reopenFileAfterServerSetup(file)
+            waitUntilFileOpenedByLspServer(project, file, BIOME_LSP_DESCRIPTOR_CLASS_NAME)
+        }
     }.recoverCatching {
-        triggerLspReanalysis()
         checkLspHighlightingForData(
             expectedHighlightingData,
             descriptorClassName = BIOME_LSP_DESCRIPTOR_CLASS_NAME,
             initialTimeout = 10,
-        )
+            targetFile = file,
+        ) {
+            triggerLspReanalysis()
+        }
     }.getOrThrow()
 }
 

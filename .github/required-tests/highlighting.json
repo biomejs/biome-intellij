@@ -1,0 +1,5 @@
+{
+  "com.github.biomejs.intellijbiome.lsp.UnusedFunctionHighlightingTest": [
+    "testUnusedFunctionDiagnosticsProduceSnapshotDiagnostics"
+  ]
+}

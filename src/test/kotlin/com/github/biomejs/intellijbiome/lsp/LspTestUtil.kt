@@ -90,8 +90,12 @@ fun CodeInsightTestFixture.checkLspHighlightingForData(
     descriptorClassName: String? = null,
     initialTimeout: Int = DEFAULT_DIAGNOSTICS_TIMEOUT,
     retryTimeout: Int = DEFAULT_RETRY_TIMEOUT,
+    targetFile: VirtualFile = file.virtualFile,
+    triggerDiagnostics: () -> Unit = {},
 ) {
-    withDiagnosticsReceivedCounter(project, file.virtualFile, descriptorClassName) { diagnosticsReceivedCounter ->
+    withDiagnosticsReceivedCounter(project, targetFile, descriptorClassName) { diagnosticsReceivedCounter ->
+        // An open, reopen or write can synchronously dispatch diagnostics before it returns.
+        triggerDiagnostics()
         doWaitForDiagnosticsFromLspServer(diagnosticsReceivedCounter, timeout = initialTimeout, attemptNumber = 1)
         doCheckExpectedHighlightingData(
             this as CodeInsightTestFixtureImpl,
