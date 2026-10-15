@@ -19,6 +19,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.LspServer
+import com.intellij.platform.lsp.api.LspServerState
 import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.customization.LspIntentionAction
 import com.intellij.platform.lsp.util.getLsp4jRange
@@ -40,25 +41,26 @@ class BiomeServerService internal constructor(
         Format, ApplySafeFixes, SortImports
     }
 
+    enum class Outcome {
+        Changed, Unchanged, Unavailable, Stale, NotApplied, PartiallyChanged
+    }
+
     companion object {
         fun getInstance(project: Project): BiomeServerService = project.getService(BiomeServerService::class.java)
     }
 
     private fun getServer(file: VirtualFile): LspServer? =
         LspServerManager.getInstance(project).getServersForProvider(BiomeLspServerSupportProvider::class.java)
-            .firstOrNull { server -> server.descriptor.isSupportedFile(file) }
+            .firstOrNull { server -> server.state == LspServerState.Running && server.descriptor.isSupportedFile(file) }
 
-    suspend fun applySafeFixes(document: Document) {
+    suspend fun applySafeFixes(document: Document): Outcome =
         executeFeatures(document, EnumSet.of(Feature.ApplySafeFixes))
-    }
 
-    suspend fun sortImports(document: Document) {
+    suspend fun sortImports(document: Document): Outcome =
         executeFeatures(document, EnumSet.of(Feature.SortImports))
-    }
 
-    suspend fun format(document: Document) {
+    suspend fun format(document: Document): Outcome =
         executeFeatures(document, EnumSet.of(Feature.Format))
-    }
 
     fun restartBiomeServer() {
         LspServerManager.getInstance(project).stopAndRestartIfNeeded(BiomeLspServerSupportProvider::class.java)
@@ -68,9 +70,11 @@ class BiomeServerService internal constructor(
         LspServerManager.getInstance(project).stopServers(BiomeLspServerSupportProvider::class.java)
     }
 
-    suspend fun executeFeatures(document: Document, features: EnumSet<Feature>) {
-        val file = readAction { FileDocumentManager.getInstance().getFile(document) } ?: return
-        val server = getServer(file) ?: return
+    suspend fun executeFeatures(document: Document, features: EnumSet<Feature>): Outcome {
+        val file = readAction { FileDocumentManager.getInstance().getFile(document) } ?: return Outcome.Unavailable
+        val server = getServer(file) ?: return Outcome.Unavailable
+        var changed = false
+        var skipped = false
         val commandName = BiomeBundle.message("biome.run.biome.check.with.features",
             features.joinToString(prefix = "(", postfix = ")") { it.toString().lowercase() })
 
@@ -91,14 +95,16 @@ class BiomeServerService internal constructor(
                 )
             }
             val actions = requests.codeActions(server, params)
+            if (actions == null && server.state != LspServerState.Running) {
+                return if (changed) Outcome.PartiallyChanged else Outcome.Unavailable
+            }
             if (!applyIfCurrent(document, file, stamp, commandName) {
+                    val before = document.text
                     actions?.forEach { result ->
-                        if (result.isRight && result.right.edit != null && result.right.command == null) {
-                            val action = LspIntentionAction(server, result.right)
-                            if (action.isAvailable()) action.invoke(file)
-                        }
+                        if (!result.isRight || !applyCodeAction(server, file, result.right)) skipped = true
                     }
-                }) return
+                    changed = changed || document.text != before
+                }) return Outcome.Stale
         }
 
         if (features.contains(Feature.Format)) {
@@ -109,10 +115,41 @@ class BiomeServerService internal constructor(
                 )
             }
             val edits = requests.formatting(server, params)
+            if (edits == null && server.state != LspServerState.Running) {
+                return if (changed) Outcome.PartiallyChanged else Outcome.Unavailable
+            }
             if (edits != null) {
-                applyIfCurrent(document, file, stamp, commandName) { applyFormatting(document, file, edits) }
+                if (!applyIfCurrent(document, file, stamp, commandName) {
+                        val before = document.text
+                        val separator = file.detectedLineSeparator
+                        applyFormatting(document, file, edits)
+                        changed = changed || document.text != before || file.detectedLineSeparator != separator
+                    }) return Outcome.Stale
             }
         }
+        return when {
+            skipped && changed -> Outcome.PartiallyChanged
+            skipped -> Outcome.NotApplied
+            changed -> Outcome.Changed
+            else -> Outcome.Unchanged
+        }
+    }
+
+    private fun applyCodeAction(server: LspServer, file: VirtualFile, codeAction: CodeAction): Boolean {
+        // Commands and deferred actions have no tracked synchronous completion here.
+        val edit = codeAction.edit ?: return false
+        if (codeAction.command != null) return false
+        var applied = edit.changes.isNullOrEmpty() && edit.documentChanges.isNullOrEmpty()
+        val action = object : LspIntentionAction(server, codeAction) {
+            override fun applyWorkspaceEdit(workspaceEdit: WorkspaceEdit, uriToDocumentMap: Map<String, Document>) {
+                super.applyWorkspaceEdit(workspaceEdit, uriToDocumentMap)
+                applied = true
+            }
+        }
+        if (!action.isAvailable()) return false
+        action.invoke(file)
+        // Availability does not include the platform's write-access preparation.
+        return applied
     }
 
     private suspend fun applyIfCurrent(

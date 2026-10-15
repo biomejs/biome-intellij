@@ -2,7 +2,6 @@ package com.github.biomejs.intellijbiome.actions
 
 import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.BiomeIcons
-import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.github.biomejs.intellijbiome.services.BiomeServerService.Feature
 import com.github.biomejs.intellijbiome.settings.BiomeConfigurable
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
@@ -15,8 +14,6 @@ import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.DumbAware
-import com.intellij.platform.ide.progress.runWithModalProgressBlocking
-import kotlinx.coroutines.withTimeout
 
 class BiomeSortImportAction : AnAction(), DumbAware {
     init {
@@ -43,21 +40,6 @@ class BiomeSortImportAction : AnAction(), DumbAware {
             return
         }
 
-        runWithModalProgressBlocking(project,
-            BiomeBundle.message("biome.run.biome.check.with.features", Feature.SortImports.toString())) {
-            try {
-                withTimeout(5_000) {
-                    BiomeServerService.getInstance(project).sortImports(editor.document)
-                }
-                notificationGroup.createNotification(title = BiomeBundle.message("biome.apply.sort.import.success.label"),
-                    content = BiomeBundle.message("biome.apply.sort.import.success.description"),
-                    type = NotificationType.INFORMATION).notify(project)
-            } catch (e: Exception) {
-                notificationGroup.createNotification(title = BiomeBundle.message("biome.apply.sort.import.failure.label"),
-                    content = BiomeBundle.message("biome.apply.sort.import.failure.description", e.message.toString()),
-                    type = NotificationType.ERROR).notify(project)
-            }
-        }
+        runBiomeManualAction(project, editor.document, virtualFile, Feature.SortImports, "biome.apply.sort.import")
     }
 }
-
