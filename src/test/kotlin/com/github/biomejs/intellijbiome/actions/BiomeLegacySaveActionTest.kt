@@ -141,10 +141,6 @@ class BiomeLegacySaveActionTest : BasePlatformTestCase() {
         }
     }
 
-    private suspend fun BiomeCheckOnSaveAction.updateDocument(project: com.intellij.openapi.project.Project, document: com.intellij.openapi.editor.Document) {
-        processDocuments(project, arrayOf(document))
-    }
-
     private fun runAction(operation: suspend () -> Unit) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.EDT)
         val result = AtomicReference<Result<Unit>>()

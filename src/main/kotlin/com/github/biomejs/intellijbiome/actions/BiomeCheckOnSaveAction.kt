@@ -11,30 +11,22 @@ import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
-import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import java.util.EnumSet
 
 class BiomeCheckOnSaveAction internal constructor(
     private val execute: suspend (Project, Document, EnumSet<BiomeServerService.Feature>) -> Unit,
-) : ActionsOnSaveFileDocumentManagerListener.ActionOnSave() {
+) : ActionsOnSaveFileDocumentManagerListener.DocumentUpdatingActionOnSave() {
     constructor() : this({ project, document, features ->
         BiomeServerService.getInstance(project).executeFeatures(document, features)
     })
 
+    override val presentableName: String
+        get() = BiomeBundle.message("biome.save.action.name")
+
     override fun isEnabledForProject(project: Project): Boolean =
         BiomeSettings.getInstance(project).getEnabledFeatures().isNotEmpty()
 
-    override fun processDocuments(project: Project, documents: Array<Document>) {
-        val features = BiomeSettings.getInstance(project).getEnabledFeatures()
-        if (features.isEmpty()) return
-        val description = BiomeBundle.message("biome.run.biome.check.with.features",
-            features.joinToString(prefix = "(", postfix = ")") { it.toString().lowercase() })
-        runWithModalProgressBlocking(project, description) {
-            for (document in documents) processDocument(project, document)
-        }
-    }
-
-    private suspend fun processDocument(project: Project, document: Document) {
+    override suspend fun updateDocument(project: Project, document: Document) {
         val snapshot = readAction {
             val settings = BiomeSettings.getInstance(project)
             val features = settings.getEnabledFeatures()
