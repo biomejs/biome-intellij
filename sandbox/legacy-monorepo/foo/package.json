@@ -1,7 +1,7 @@
 {
 	"name": "@biome-intellij-sandbox/foo",
 	"private": true,
-	"packageManager": "pnpm@10.5.2",
+	"packageManager": "pnpm@12.11.2",
 	"devDependencies": {
 		"@biomejs/biome": "2.0.5"
 	},
