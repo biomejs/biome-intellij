@@ -31,13 +31,33 @@ plugin loaded.
 ./gradlew runIde
 ```
 
-### Running tests
+### Plugin regression tests
 
-To run the plugin's tests, run the `test` Gradle task.
+On Linux x64, install Node.js 24 and pnpm 10.5.2 through Corepack before running
+the headless plugin and LSP regression tests:
+
+```sh
+corepack enable
+corepack prepare pnpm@10.5.2 --activate
+./gradlew test
+```
+
+Gradle discovers every headless test. The task fails if no tests run or any test
+fails or is skipped. Tests always execute; compilation and dependency caches
+remain available. XML and HTML reports are written under `build/test-results/test`
+and `build/reports/tests/test`.
+
+The test task uses the SDK's JetBrains Runtime and a separate Biome daemon cache
+for each checkout and runtime task. Tag Remote Robot tests with `remote-robot`;
+they require a running IDE and are excluded from the headless suite.
+
+### Remote Robot UI tests
+
+The Remote Robot suite needs the UI test IDE running in another process:
 
 ```shell
 ./gradlew runIdeForUiTests &
-./gradlew test
+./gradlew test -PuiTests
 ```
 
 ## Making changes

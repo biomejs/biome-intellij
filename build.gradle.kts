@@ -1,4 +1,6 @@
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import java.io.File
+import java.security.MessageDigest
 
 val remoteRobotVersion = "0.11.21"
 val testPlatformKotlinVersion = "2.2.20"
@@ -55,6 +57,9 @@ dependencies {
       useInstaller = false
     }
 
+    // IDE tooling needs the matching JetBrains Runtime when the SDK has no bundled runtime.
+    jetbrainsRuntime()
+
     // Plugin Dependencies. Uses `platformBundledPlugins` property from the gradle.properties file for bundled IntelliJ Platform plugins.
     bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(',') })
 
@@ -100,10 +105,6 @@ tasks {
   wrapper {
     gradleVersion = providers.gradleProperty("gradleVersion").get()
   }
-
-  test {
-    useJUnitPlatform()
-  }
 }
 
 intellijPlatformTesting {
@@ -131,4 +132,41 @@ intellijPlatformTesting {
       }
     }
   }
+}
+
+// Keep the result guard independent of the build script for configuration-cache reuse.
+class RequiredTests : TestListener {
+  override fun beforeSuite(suite: TestDescriptor) {}
+  override fun beforeTest(test: TestDescriptor) {}
+  override fun afterTest(test: TestDescriptor, result: TestResult) {}
+  override fun afterSuite(suite: TestDescriptor, result: TestResult) {
+    if (suite.parent == null) {
+      check(result.testCount > 0) { "No tests ran" }
+      check(result.skippedTestCount == 0L) { "${result.skippedTestCount} tests were skipped" }
+    }
+  }
+}
+
+tasks.withType<Test>().configureEach {
+  useJUnitPlatform {
+    if (providers.gradleProperty("uiTests").isPresent) includeTags("remote-robot")
+    else excludeTags("remote-robot")
+  }
+  // Execute tests on every invocation while preserving compilation and dependency caches.
+  outputs.upToDateWhen { false }
+  outputs.doNotCacheIf("Test results must come from this invocation") { true }
+  failOnNoDiscoveredTests = true
+  onlyIf("Test classes must exist") {
+    check((it as Test).testClassesDirs.asFileTree.matching { include("**/*.class") }.files.isNotEmpty()) {
+      "No test classes were compiled"
+    }
+    true
+  }
+  addTestListener(RequiredTests())
+  // Biome daemons share their cache. Isolate each checkout and runtime task,
+  // keeping the path short enough for Unix domain sockets.
+  val cacheKey = MessageDigest.getInstance("SHA-256")
+    .digest("${projectDir.absolutePath}:$name".toByteArray(Charsets.UTF_8))
+    .take(8).joinToString("") { "%02x".format(it) }
+  environment("XDG_CACHE_HOME", File(System.getProperty("java.io.tmpdir"), "biome-test-$cacheKey").absolutePath)
 }
