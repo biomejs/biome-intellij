@@ -1,0 +1,5 @@
+{
+  "formatter": { "enabled": true },
+  "linter": { "enabled": true, "rules": { "recommended": true } },
+  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } }
+}

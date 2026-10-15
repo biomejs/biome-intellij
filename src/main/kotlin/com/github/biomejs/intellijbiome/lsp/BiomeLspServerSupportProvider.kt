@@ -138,6 +138,8 @@ private class BiomeLspServerDescriptor(
     override val clientCapabilities: ClientCapabilities
         get() = super.clientCapabilities.apply {
             workspace.configuration = true
+            // Save actions apply immediate edits without synchronous resolution inside a write command.
+            textDocument.codeAction.resolveSupport = null
         }
 
     override fun getWorkspaceConfiguration(item: ConfigurationItem): BiomeLspWorkspaceSettings? {
