@@ -10,7 +10,7 @@
   "lockFileMaintenance": {
     "enabled": false
   },
-  "assignees": ["@biomejs/maintainers", "@biomejs/core-contributors"],
+  "reviewers": ["@biomejs/maintainers", "@biomejs/core-contributors"],
   // Test fixtures are not real dependencies
   "ignorePaths": ["src/test/testData/**"],
   "packageRules": [
