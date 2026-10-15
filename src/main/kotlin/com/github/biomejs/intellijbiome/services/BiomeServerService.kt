@@ -6,12 +6,17 @@ import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.readAction
+import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.EDT
+import com.intellij.openapi.command.CommandProcessor
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.command.execute
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressManager
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -26,6 +31,7 @@ import com.intellij.platform.lsp.util.getLsp4jRange
 import com.intellij.platform.lsp.util.getRangeInDocument
 import com.intellij.util.LineSeparator
 import org.eclipse.lsp4j.*
+import org.eclipse.lsp4j.jsonrpc.messages.Either
 import java.util.*
 
 @Service(Service.Level.PROJECT)
@@ -98,13 +104,16 @@ class BiomeServerService internal constructor(
             if (actions == null && server.state != LspServerState.Running) {
                 return if (changed) Outcome.PartiallyChanged else Outcome.Unavailable
             }
-            if (!applyIfCurrent(document, file, stamp, commandName) {
-                    val before = document.text
-                    actions?.forEach { result ->
-                        if (!result.isRight || !applyCodeAction(server, file, result.right)) skipped = true
-                    }
-                    changed = changed || document.text != before
-                }) return Outcome.Stale
+            when (applyCodeActions(server, document, file, stamp, commandName, actions.orEmpty())) {
+                Outcome.Changed -> changed = true
+                Outcome.NotApplied -> skipped = true
+                Outcome.PartiallyChanged -> {
+                    changed = true
+                    skipped = true
+                }
+                Outcome.Stale -> return Outcome.Stale
+                else -> Unit
+            }
         }
 
         if (features.contains(Feature.Format)) {
@@ -135,21 +144,75 @@ class BiomeServerService internal constructor(
         }
     }
 
-    private fun applyCodeAction(server: LspServer, file: VirtualFile, codeAction: CodeAction): Boolean {
-        // Commands and deferred actions have no tracked synchronous completion here.
-        val edit = codeAction.edit ?: return false
-        if (codeAction.command != null) return false
-        var applied = edit.changes.isNullOrEmpty() && edit.documentChanges.isNullOrEmpty()
-        val action = object : LspIntentionAction(server, codeAction) {
-            override fun applyWorkspaceEdit(workspaceEdit: WorkspaceEdit, uriToDocumentMap: Map<String, Document>) {
-                super.applyWorkspaceEdit(workspaceEdit, uriToDocumentMap)
-                applied = true
-            }
+    private suspend fun applyCodeActions(
+        server: LspServer,
+        document: Document,
+        file: VirtualFile,
+        stamp: Long,
+        commandName: String,
+        actions: List<Either<Command, CodeAction>>,
+    ): Outcome {
+        val context = currentCoroutineContext()
+        var expectedStamp = stamp
+        var changed = false
+        var skipped = false
+        var stale = false
+        fun isCurrent(): Boolean {
+            context.ensureActive()
+            ProgressManager.checkCanceled()
+            if (project.isDisposed) throw ProcessCanceledException()
+            return document.modificationStamp == expectedStamp && file.isValid
         }
-        if (!action.isAvailable()) return false
-        action.invoke(file)
-        // Availability does not include the platform's write-access preparation.
-        return applied
+
+        if (!readAction { isCurrent() }) return Outcome.Stale
+        // Native intentions prepare write access before entering their own write action.
+        // Keep the undo command, but let permission dialogs run without a write lock.
+        withContext(Dispatchers.EDT) {
+            CommandProcessor.getInstance().executeCommand(project, {
+                for (result in actions) {
+                    val codeAction = result.right
+                    val edit = codeAction?.edit
+                    // Commands and deferred actions have no tracked synchronous completion here.
+                    if (edit == null || codeAction.command != null) {
+                        skipped = true
+                        continue
+                    }
+                    var applied = edit.changes.isNullOrEmpty() && edit.documentChanges.isNullOrEmpty()
+                    val action = object : LspIntentionAction(server, codeAction) {
+                        override fun applyWorkspaceEdit(workspaceEdit: WorkspaceEdit, uriToDocumentMap: Map<String, Document>) {
+                            // Preparation can pump UI events or outlive the request deadline.
+                            if (!isCurrent()) {
+                                stale = true
+                                return
+                            }
+                            val before = document.text
+                            super.applyWorkspaceEdit(workspaceEdit, uriToDocumentMap)
+                            applied = true
+                            changed = changed || document.text != before
+                            expectedStamp = document.modificationStamp
+                        }
+                    }
+                    val available = ReadAction.compute<Boolean, RuntimeException> {
+                        if (!isCurrent()) {
+                            stale = true
+                            false
+                        } else action.isAvailable()
+                    }
+                    if (stale) break
+                    if (available) action.invoke(file)
+                    context.ensureActive()
+                    if (stale) break
+                    if (!available || !applied) skipped = true
+                }
+            }, commandName, groupId)
+        }
+        return when {
+            stale -> Outcome.Stale
+            skipped && changed -> Outcome.PartiallyChanged
+            skipped -> Outcome.NotApplied
+            changed -> Outcome.Changed
+            else -> Outcome.Unchanged
+        }
     }
 
     private suspend fun applyIfCurrent(

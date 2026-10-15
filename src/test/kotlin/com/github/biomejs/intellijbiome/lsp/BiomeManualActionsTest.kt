@@ -33,6 +33,8 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicReference
+import java.util.EnumSet
 
 @TestNpmPackage("@biomejs/biome@2.5.15")
 class BiomeManualActionsTest : BiomeLspFixtureTestCase() {
@@ -162,6 +164,103 @@ class BiomeManualActionsTest : BiomeLspFixtureTestCase() {
                 listOf(NotificationType.WARNING to "Biome actions unavailable", NotificationType.WARNING to "Biome actions unavailable"),
                 outcomes,
             )
+        } finally {
+            Disposer.dispose(disposable)
+        }
+    }
+
+    fun testBothActionsPrepareWriteAccessOutsideWriteAction() {
+        openFile()
+        replaceRequests { _, params -> response(params, "// prepared edit\n") }
+        var preparedInsideWriteAction = false
+        withWritePreparation({
+            preparedInsideWriteAction = ApplicationManager.getApplication().isWriteAccessAllowed
+            true
+        }) {
+            for (action in actions) {
+                val before = myFixture.editor.document.text
+                invoke(action)
+                assertFalse("Write preparation may open a modal dialog", preparedInsideWriteAction)
+                assertEquals("// prepared edit\n$before", myFixture.editor.document.text)
+                UndoManager.getInstance(project).undo(TextEditorProvider.getInstance().getTextEditor(myFixture.editor))
+                assertEquals(before, myFixture.editor.document.text)
+            }
+        }
+    }
+
+    fun testBothFeaturesRejectEditsAfterCancellationDuringWritePreparation() {
+        openFile()
+        var requestJob: Job? = null
+        replaceRequests { _, params ->
+            requestJob = currentCoroutineContext()[Job]
+            response(params, "// canceled edit\n")
+        }
+        withWritePreparation({
+            checkNotNull(requestJob).cancel(CancellationException("Canceled while awaiting write access"))
+            true
+        }) {
+            for (feature in listOf(BiomeServerService.Feature.ApplySafeFixes, BiomeServerService.Feature.SortImports)) {
+                val before = myFixture.editor.document.text
+                val document = myFixture.editor.document
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val result = AtomicReference<Result<BiomeServerService.Outcome>>()
+                try {
+                    scope.launch {
+                        result.set(runCatching {
+                            BiomeServerService.getInstance(project).executeFeatures(document, EnumSet.of(feature))
+                        })
+                    }
+                    PlatformTestUtil.waitWithEventsDispatching("Canceled service did not finish", { result.get() != null }, 15)
+                } finally {
+                    scope.cancel()
+                }
+                val failure = result.get().exceptionOrNull()
+                assertEquals("Cancellation during preparation must prevent the edit", before, myFixture.editor.document.text)
+                assertTrue("Cancellation must escape: $failure", failure is ProcessCanceledException || failure is CancellationException)
+                assertTrue("Cancellation must not notify", notifications.isEmpty())
+            }
+        }
+    }
+
+    fun testBothActionsRejectEditsAfterDocumentChangesDuringWritePreparation() {
+        openFile()
+        replaceRequests { _, params -> response(params, "// obsolete edit\n") }
+        withWritePreparation({
+            WriteCommandAction.runWriteCommandAction(project) {
+                myFixture.editor.document.setText("// changed while awaiting write access\n")
+            }
+            true
+        }) {
+            for (action in actions) {
+                WriteCommandAction.runWriteCommandAction(project) { myFixture.editor.document.setText("// original\n") }
+                invoke(action)
+                assertEquals("// changed while awaiting write access\n", myFixture.editor.document.text)
+                assertNotification(NotificationType.WARNING, "Biome result discarded", "changed")
+            }
+        }
+    }
+
+    private fun withWritePreparation(prepare: () -> Boolean, operation: () -> Unit) {
+        val disposable = Disposer.newDisposable()
+        ApplicationManager.getApplication().replaceService(
+            com.intellij.codeInsight.FileModificationService::class.java,
+            object : com.intellij.codeInsight.FileModificationService() {
+                override fun preparePsiElementsForWrite(elements: Collection<com.intellij.psi.PsiElement>): Boolean =
+                    error("Unexpected PSI preparation")
+                override fun prepareFileForWrite(file: com.intellij.psi.PsiFile?): Boolean =
+                    error("Unexpected file preparation")
+                override fun prepareVirtualFilesForWrite(
+                    project: com.intellij.openapi.project.Project,
+                    files: Collection<com.intellij.openapi.vfs.VirtualFile>,
+                ): Boolean {
+                    assertEquals(listOf(myFixture.file.virtualFile), files.toList())
+                    return prepare()
+                }
+            },
+            disposable,
+        )
+        try {
+            operation()
         } finally {
             Disposer.dispose(disposable)
         }
@@ -324,6 +423,19 @@ class BiomeManualActionsTest : BiomeLspFixtureTestCase() {
         }
     }
 
+    fun testBothActionsApplyMultipleEditsInOneUndoCommand() {
+        openFile()
+        replaceRequests { _, params -> response(params, "// first edit\n") + response(params, "// second edit\n") }
+        for (action in actions) {
+            val before = myFixture.editor.document.text
+            invoke(action)
+            assertEquals("// second edit\n// first edit\n$before", myFixture.editor.document.text)
+            assertEquals(NotificationType.INFORMATION, notifications.single().type)
+            UndoManager.getInstance(project).undo(TextEditorProvider.getInstance().getTextEditor(myFixture.editor))
+            assertEquals(before, myFixture.editor.document.text)
+        }
+    }
+
     fun testBothActionsApplyRealServerEditsAndUndo() {
         // Require the current server to become ready on the first document open.
         val events = RuntimeGateEvents(project, testRootDisposable)
@@ -474,7 +586,7 @@ class BiomeManualActionsTest : BiomeLspFixtureTestCase() {
     private fun assertNotification(type: NotificationType, title: String, content: String) {
         assertEquals("One manual action notification", 1, notifications.size)
         val notification = notifications.single()
-        assertEquals(type, notification.type)
+        assertEquals(notification.content, type, notification.type)
         assertEquals(title, notification.title)
         assertTrue("Expected '$content' in '${notification.content}'", notification.content.contains(content))
     }
