@@ -1,0 +1,47 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "timezone": "Europe/Gibraltar",
+  "schedule": ["before 9am on monday"],
+  "extends": [
+    "config:best-practices",
+    "helpers:pinGitHubActionDigestsToSemver"
+  ],
+  "rangeStrategy": "bump",
+  "lockFileMaintenance": {
+    "enabled": false
+  },
+  "assignees": ["@biomejs/maintainers", "@biomejs/core-contributors"],
+  // Test fixtures are not real dependencies
+  "ignorePaths": ["src/test/testData/**"],
+  "packageRules": [
+    {
+      "minimumReleaseAge": "3 days",
+      "groupName": "github-actions",
+      "matchManagers": ["github-actions"]
+    },
+    {
+      "minimumReleaseAge": "3 days",
+      "groupName": "Gradle",
+      "matchDepNames": ["gradle"]
+    },
+    {
+      // Needs to be updated manually to stay compatible with the Kotlin stdlib bundled in the IDE
+      // https://plugins.jetbrains.com/docs/intellij/using-kotlin.html#bundled-stdlib-versions
+      "matchManagers": ["gradle"],
+      "matchPackageNames": ["org.jetbrains.kotlin.*"],
+      "matchUpdateTypes": ["major", "minor"],
+      "enabled": false
+    }
+  ],
+  "customManagers": [
+    {
+      // Keep `gradleVersion` in sync with the Gradle wrapper
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)gradle\\.properties$/"],
+      "matchStrings": ["gradleVersion\\s*=\\s*(?<currentValue>\\S+)"],
+      "depNameTemplate": "gradle",
+      "datasourceTemplate": "gradle-version",
+      "versioningTemplate": "gradle"
+    }
+  ]
+}
