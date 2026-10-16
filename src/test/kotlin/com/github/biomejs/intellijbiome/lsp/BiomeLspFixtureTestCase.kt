@@ -1,20 +1,28 @@
 package com.github.biomejs.intellijbiome.lsp
 
+import com.github.biomejs.intellijbiome.launcher.createBiomeProcessDirectory
+import com.github.biomejs.intellijbiome.launcher.isolatedBiomeEnvironment
+import com.github.biomejs.intellijbiome.launcher.setTestEnvironment
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.intellij.lang.javascript.modules.TestNpmPackageInstaller
 import com.intellij.openapi.components.service
+import com.intellij.openapi.util.SystemInfoRt
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.testFramework.builders.ModuleFixtureBuilder
 import com.intellij.testFramework.fixtures.CodeInsightFixtureTestCase
 import com.intellij.testFramework.fixtures.ModuleFixture
 import com.intellij.testFramework.fixtures.impl.CodeInsightTestFixtureImpl
+import com.intellij.util.EnvironmentUtil
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.invariantSeparatorsPathString
 
 abstract class BiomeLspFixtureTestCase :
     CodeInsightFixtureTestCase<ModuleFixtureBuilder<ModuleFixture>>() {
+    private var originalProcessEnvironment: Map<String, String>? = null
+    private var processDirectory: Path? = null
 
     protected fun setUpLspFixture(fixtureName: String) {
         (myFixture as CodeInsightTestFixtureImpl).canChangeDocumentDuringHighlighting(true)
@@ -27,6 +35,13 @@ abstract class BiomeLspFixtureTestCase :
     override fun setUp() {
         super.setUp()
         resetBiomeSettings()
+        if (SystemInfoRt.isMac || SystemInfoRt.isLinux) {
+            val original = EnvironmentUtil.getEnvironmentMap().toMap()
+            originalProcessEnvironment = original
+            val directory = createBiomeProcessDirectory("bl-")
+            processDirectory = directory
+            setTestEnvironment(isolatedBiomeEnvironment(original, directory))
+        }
     }
 
     override fun tearDown() {
@@ -36,7 +51,17 @@ abstract class BiomeLspFixtureTestCase :
                 project.service<BiomeServerService>().stopBiomeServer()
             }
         } finally {
-            super.tearDown()
+            try {
+                super.tearDown()
+            } finally {
+                try {
+                    originalProcessEnvironment?.let(::setTestEnvironment)
+                    originalProcessEnvironment = null
+                } finally {
+                    processDirectory?.let { FileUtil.delete(it.toFile()) }
+                    processDirectory = null
+                }
+            }
         }
     }
 

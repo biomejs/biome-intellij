@@ -53,13 +53,15 @@ class TestNpmPackageInstaller(
     }
 
     private fun installNodeModules(installDir: VirtualFile) {
+        // Daemon-cache isolation must not discard the test runner's package-manager caches.
         val commandLine = GeneralCommandLine(
             if (isWindows()) {
                 listOf("cmd", "/c", "corepack pnpm install --frozen-lockfile")
             } else {
                 listOf("sh", "-c", "corepack pnpm install --frozen-lockfile")
             }
-        ).withWorkDirectory(installDir.path)
+        ).withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.SYSTEM)
+            .withWorkDirectory(installDir.path)
             .withCharset(Charsets.UTF_8)
 
         val output = CapturingProcessHandler(commandLine).runProcess(300_000)
