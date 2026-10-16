@@ -14,6 +14,7 @@ import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerDescriptor
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.customization.LspDiagnosticsSupport
+import com.intellij.openapi.util.text.StringUtil
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import kotlin.io.path.Path
@@ -128,11 +129,14 @@ private class BiomeLspServerDescriptor(
     }
 
     override val lspDiagnosticsSupport = object : LspDiagnosticsSupport() {
-        override fun getMessage(diagnostic: Diagnostic) =
-            "Biome: ${diagnostic.message} (${diagnostic.code.left})"
+        override fun getMessage(diagnostic: Diagnostic): String {
+            val code = diagnostic.code?.let { it.left ?: it.right?.toString() }
+            return "Biome: ${super.getMessage(diagnostic)}" + (code?.let { " ($it)" } ?: "")
+        }
 
         override fun getTooltip(diagnostic: Diagnostic) =
-            getMessage(diagnostic)
+            StringUtil.escapeXmlEntities(getMessage(diagnostic))
+                .replace("\r\n", "\n").replace('\r', '\n').replace("\n", "<br>")
     }
 
     override val clientCapabilities: ClientCapabilities
