@@ -32,6 +32,7 @@ import org.eclipse.lsp4j.*
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.FileTime
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicReference
 import java.util.EnumSet
@@ -238,6 +239,43 @@ class BiomeManualActionsTest : BiomeLspFixtureTestCase() {
                 assertNotification(NotificationType.WARNING, "Biome result discarded", "changed")
             }
         }
+    }
+
+    fun testCodeActionsRejectExternalDiskChangesDuringRequest() {
+        openFile()
+        replaceRequests { _, params ->
+            writeOutsideVfs("// external request-time edit\n")
+            response(params, "// obsolete edit\n")
+        }
+        invoke(BiomeApplySafeFixesAction())
+        assertFalse(myFixture.editor.document.text.contains("// obsolete edit"))
+        assertEquals("// external request-time edit\n", Files.readString(Path.of(myFixture.file.virtualFile.path)))
+        assertNotification(NotificationType.WARNING, "Biome result discarded", "changed")
+    }
+
+    fun testCodeActionsRejectExternalDiskChangesDuringWritePreparation() {
+        openFile()
+        replaceRequests { _, params -> response(params, "// obsolete edit\n") }
+        withWritePreparation({
+            writeOutsideVfs("// external preparation-time edit\n")
+            true
+        }) {
+            invoke(BiomeApplySafeFixesAction())
+            assertFalse(myFixture.editor.document.text.contains("// obsolete edit"))
+            assertEquals("// external preparation-time edit\n", Files.readString(Path.of(myFixture.file.virtualFile.path)))
+            assertNotification(NotificationType.WARNING, "Biome result discarded", "changed")
+        }
+    }
+
+    private fun writeOutsideVfs(text: String) {
+        val file = myFixture.file.virtualFile
+        awaitPhysicalFileWrites(file)
+        val cached = file.contentsToByteArray().toList()
+        val timestamp = file.timeStamp
+        val path = Path.of(file.path)
+        Files.writeString(path, text)
+        Files.setLastModifiedTime(path, FileTime.fromMillis(timestamp + 10_000))
+        assertEquals("External writes must remain invisible to cached VFS bytes in this control", cached, file.contentsToByteArray().toList())
     }
 
     private fun withWritePreparation(prepare: () -> Boolean, operation: () -> Unit) {

@@ -1,6 +1,5 @@
 package com.github.biomejs.intellijbiome.services
 
-import com.intellij.codeStyle.AbstractConvertLineSeparatorsAction
 import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
 import com.intellij.notification.NotificationGroupManager
@@ -11,6 +10,9 @@ import com.intellij.openapi.application.EDT
 import com.intellij.openapi.command.CommandProcessor
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.command.execute
+import com.intellij.openapi.command.undo.BasicUndoableAction
+import com.intellij.openapi.command.undo.UndoManager
+import com.intellij.openapi.command.undo.UnexpectedUndoException
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressManager
 import kotlinx.coroutines.currentCoroutineContext
@@ -20,19 +22,21 @@ import kotlinx.coroutines.withContext
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.fileEditor.impl.LoadTextUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.newvfs.NewVirtualFileSystem
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerState
 import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.customization.LspIntentionAction
 import com.intellij.platform.lsp.util.getLsp4jRange
 import com.intellij.platform.lsp.util.getRangeInDocument
-import com.intellij.util.LineSeparator
 import org.eclipse.lsp4j.*
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import java.util.*
+import java.io.IOException
 
 @Service(Service.Level.PROJECT)
 class BiomeServerService internal constructor(
@@ -161,7 +165,7 @@ class BiomeServerService internal constructor(
             context.ensureActive()
             ProgressManager.checkCanceled()
             if (project.isDisposed) throw ProcessCanceledException()
-            return document.modificationStamp == expectedStamp && file.isValid
+            return document.modificationStamp == expectedStamp && isFileCurrent(file)
         }
 
         if (!readAction { isCurrent() }) return Outcome.Stale
@@ -228,7 +232,7 @@ class BiomeServerService internal constructor(
             context.ensureActive()
             ProgressManager.checkCanceled()
             if (project.isDisposed) throw ProcessCanceledException()
-            if (document.modificationStamp != stamp || !file.isValid) false
+            if (document.modificationStamp != stamp || !isFileCurrent(file)) false
             else {
                 apply()
                 true
@@ -237,51 +241,84 @@ class BiomeServerService internal constructor(
     }
 
     private fun applyFormatting(document: Document, file: VirtualFile, edits: List<TextEdit>) {
-        var lineSeparator: LineSeparator? = null
-
-        edits.asReversed().forEach {
-            val range = getRangeInDocument(document, it.range) ?: return@forEach
-
-            if (StringUtil.isEmpty(it.newText)) {
-                document.deleteString(range.startOffset, range.endOffset)
-            } else {
-                val normalizedText = StringUtil.convertLineSeparators(it.newText)
-
-                if (range.endOffset >= 0) {
-                    if (range.length <= 0) {
-                        document.insertString(range.startOffset, normalizedText)
-                    } else {
-                        document.replaceString(range.startOffset, range.endOffset, normalizedText)
-                    }
-                } else if (range.startOffset > 0) {
-                    document.insertString(range.startOffset, normalizedText)
-                } else if (!StringUtil.equals(document.charsSequence, normalizedText)) {
-                    document.setText(normalizedText)
-                }
-            }
-
-            StringUtil.detectSeparators(it.newText)?.apply {
-                lineSeparator = this
+        val original = document.text
+        val replacements = edits.map { edit ->
+            val range = getRangeInDocument(document, edit.range) ?: return
+            range to edit.newText
+        }.sortedWith(compareBy({ it.first.startOffset }, { it.first.endOffset }))
+        val output = StringBuilder(original.length)
+        val replacementEnds = IntArray(replacements.size)
+        var offset = 0
+        replacements.forEachIndexed { index, (range, text) ->
+            if (range.startOffset < offset) return
+            output.append(original, offset, range.startOffset).append(text)
+            replacementEnds[index] = output.length
+            offset = range.endOffset
+        }
+        output.append(original, offset, original.length)
+        // Even an empty edit list describes complete LF output from the normalized document.
+        val rawOutput = output.toString()
+        replacements.indices.reversed().forEach { index ->
+            val (range, text) = replacements[index]
+            // Keep the LF when a CRLF pair crosses a replacement boundary. Original
+            // document text already uses LF, so only an inserted trailing CR can split it.
+            val normalized = StringUtil.convertLineSeparators(
+                if (text.endsWith('\r') && rawOutput.getOrNull(replacementEnds[index]) == '\n') text.dropLast(1)
+                else text)
+            if (!StringUtil.equals(range.subSequence(original), normalized)) {
+                document.replaceString(range.startOffset, range.endOffset, normalized)
             }
         }
-
-        lineSeparator?.let { setDetectedLineSeparator(project, file, it) }
+        StringUtil.detectSeparators(rawOutput)?.let { applyLineSeparator(document, file, it.separatorString) }
     }
 
-    private fun setDetectedLineSeparator(
-        project: Project,
-        vFile: VirtualFile,
-        newSeparator: LineSeparator?,
-    ): Boolean {
-        if (newSeparator != null) {
-            val newSeparatorString: String = newSeparator.separatorString
+    private fun applyLineSeparator(document: Document, file: VirtualFile, separator: String) {
+        if (file.detectedLineSeparator == separator) return
+        val manager = FileDocumentManager.getInstance()
+        val previousSeparator = manager.getLineSeparator(file, project)
+        if (!changeLineSeparatorIfCurrent(document, file, separator, manager)) return
+        UndoManager.getInstance(project).undoableActionPerformed(object : BasicUndoableAction(document) {
+            override fun undo() = restoreSeparator(previousSeparator)
+            override fun redo() = restoreSeparator(separator)
 
-            if (!StringUtil.equals(vFile.detectedLineSeparator, newSeparatorString)) {
-                AbstractConvertLineSeparatorsAction.changeLineSeparators(project, vFile, newSeparatorString)
-                return true
+            private fun restoreSeparator(value: String) {
+                try {
+                    if (!changeLineSeparatorIfCurrent(document, file, value, manager)) {
+                        throw UnexpectedUndoException(BiomeBundle.message("biome.undo.file.changed", file.presentableUrl))
+                    }
+                } catch (failure: IOException) {
+                    throw UnexpectedUndoException(failure.message ?: failure.toString()).apply { initCause(failure) }
+                }
             }
+        })
+    }
+
+    private fun changeLineSeparatorIfCurrent(
+        document: Document,
+        file: VirtualFile,
+        separator: String,
+        manager: FileDocumentManager,
+    ): Boolean {
+        if (!isFileCurrent(file)) return false
+        val textChanged = manager.isDocumentUnsaved(document) &&
+            !StringUtil.equals(document.charsSequence,
+                LoadTextUtil.getTextByBinaryPresentation(file.contentsToByteArray(), file, false, false))
+        if (textChanged) {
+            // Text edits and their separator metadata reach disk in the platform's final save.
+            file.detectedLineSeparator = separator
+        } else {
+            // Equal normalized text is skipped by the final save. The direct conversion
+            // must check disk freshness too; cached VFS bytes can hide an external write.
+            if (!isFileCurrent(file)) return false
+            LoadTextUtil.changeLineSeparators(project, file, separator, manager)
         }
-        return false
+        return true
+    }
+
+    private fun isFileCurrent(file: VirtualFile): Boolean {
+        if (!file.isValid) return false
+        val fileSystem = file.fileSystem
+        return fileSystem !is NewVirtualFileSystem || file.timeStamp == fileSystem.getTimeStamp(file)
     }
 
     fun notifyRestart() {
