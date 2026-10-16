@@ -6,12 +6,17 @@ import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.readAction
+import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.EDT
+import com.intellij.openapi.command.CommandProcessor
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.command.execute
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressManager
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -19,12 +24,14 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.LspServer
+import com.intellij.platform.lsp.api.LspServerState
 import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.customization.LspIntentionAction
 import com.intellij.platform.lsp.util.getLsp4jRange
 import com.intellij.platform.lsp.util.getRangeInDocument
 import com.intellij.util.LineSeparator
 import org.eclipse.lsp4j.*
+import org.eclipse.lsp4j.jsonrpc.messages.Either
 import java.util.*
 
 @Service(Service.Level.PROJECT)
@@ -40,25 +47,26 @@ class BiomeServerService internal constructor(
         Format, ApplySafeFixes, SortImports
     }
 
+    enum class Outcome {
+        Changed, Unchanged, Unavailable, Stale, NotApplied, PartiallyChanged
+    }
+
     companion object {
         fun getInstance(project: Project): BiomeServerService = project.getService(BiomeServerService::class.java)
     }
 
     private fun getServer(file: VirtualFile): LspServer? =
         LspServerManager.getInstance(project).getServersForProvider(BiomeLspServerSupportProvider::class.java)
-            .firstOrNull { server -> server.descriptor.isSupportedFile(file) }
+            .firstOrNull { server -> server.state == LspServerState.Running && server.descriptor.isSupportedFile(file) }
 
-    suspend fun applySafeFixes(document: Document) {
+    suspend fun applySafeFixes(document: Document): Outcome =
         executeFeatures(document, EnumSet.of(Feature.ApplySafeFixes))
-    }
 
-    suspend fun sortImports(document: Document) {
+    suspend fun sortImports(document: Document): Outcome =
         executeFeatures(document, EnumSet.of(Feature.SortImports))
-    }
 
-    suspend fun format(document: Document) {
+    suspend fun format(document: Document): Outcome =
         executeFeatures(document, EnumSet.of(Feature.Format))
-    }
 
     fun restartBiomeServer() {
         LspServerManager.getInstance(project).stopAndRestartIfNeeded(BiomeLspServerSupportProvider::class.java)
@@ -68,9 +76,11 @@ class BiomeServerService internal constructor(
         LspServerManager.getInstance(project).stopServers(BiomeLspServerSupportProvider::class.java)
     }
 
-    suspend fun executeFeatures(document: Document, features: EnumSet<Feature>) {
-        val file = readAction { FileDocumentManager.getInstance().getFile(document) } ?: return
-        val server = getServer(file) ?: return
+    suspend fun executeFeatures(document: Document, features: EnumSet<Feature>): Outcome {
+        val file = readAction { FileDocumentManager.getInstance().getFile(document) } ?: return Outcome.Unavailable
+        val server = getServer(file) ?: return Outcome.Unavailable
+        var changed = false
+        var skipped = false
         val commandName = BiomeBundle.message("biome.run.biome.check.with.features",
             features.joinToString(prefix = "(", postfix = ")") { it.toString().lowercase() })
 
@@ -91,14 +101,19 @@ class BiomeServerService internal constructor(
                 )
             }
             val actions = requests.codeActions(server, params)
-            if (!applyIfCurrent(document, file, stamp, commandName) {
-                    actions?.forEach { result ->
-                        if (result.isRight && result.right.edit != null && result.right.command == null) {
-                            val action = LspIntentionAction(server, result.right)
-                            if (action.isAvailable()) action.invoke(file)
-                        }
-                    }
-                }) return
+            if (actions == null && server.state != LspServerState.Running) {
+                return if (changed) Outcome.PartiallyChanged else Outcome.Unavailable
+            }
+            when (applyCodeActions(server, document, file, stamp, commandName, actions.orEmpty())) {
+                Outcome.Changed -> changed = true
+                Outcome.NotApplied -> skipped = true
+                Outcome.PartiallyChanged -> {
+                    changed = true
+                    skipped = true
+                }
+                Outcome.Stale -> return Outcome.Stale
+                else -> Unit
+            }
         }
 
         if (features.contains(Feature.Format)) {
@@ -109,9 +124,94 @@ class BiomeServerService internal constructor(
                 )
             }
             val edits = requests.formatting(server, params)
-            if (edits != null) {
-                applyIfCurrent(document, file, stamp, commandName) { applyFormatting(document, file, edits) }
+            if (edits == null && server.state != LspServerState.Running) {
+                return if (changed) Outcome.PartiallyChanged else Outcome.Unavailable
             }
+            if (edits != null) {
+                if (!applyIfCurrent(document, file, stamp, commandName) {
+                        val before = document.text
+                        val separator = file.detectedLineSeparator
+                        applyFormatting(document, file, edits)
+                        changed = changed || document.text != before || file.detectedLineSeparator != separator
+                    }) return Outcome.Stale
+            }
+        }
+        return when {
+            skipped && changed -> Outcome.PartiallyChanged
+            skipped -> Outcome.NotApplied
+            changed -> Outcome.Changed
+            else -> Outcome.Unchanged
+        }
+    }
+
+    private suspend fun applyCodeActions(
+        server: LspServer,
+        document: Document,
+        file: VirtualFile,
+        stamp: Long,
+        commandName: String,
+        actions: List<Either<Command, CodeAction>>,
+    ): Outcome {
+        val context = currentCoroutineContext()
+        var expectedStamp = stamp
+        var changed = false
+        var skipped = false
+        var stale = false
+        fun isCurrent(): Boolean {
+            context.ensureActive()
+            ProgressManager.checkCanceled()
+            if (project.isDisposed) throw ProcessCanceledException()
+            return document.modificationStamp == expectedStamp && file.isValid
+        }
+
+        if (!readAction { isCurrent() }) return Outcome.Stale
+        // Native intentions prepare write access before entering their own write action.
+        // Keep the undo command, but let permission dialogs run without a write lock.
+        withContext(Dispatchers.EDT) {
+            CommandProcessor.getInstance().executeCommand(project, {
+                for (result in actions) {
+                    val codeAction = result.right
+                    val edit = codeAction?.edit
+                    // Commands and deferred actions have no tracked synchronous completion here.
+                    if (edit == null || codeAction.command != null) {
+                        skipped = true
+                        continue
+                    }
+                    var applied = edit.changes.isNullOrEmpty() && edit.documentChanges.isNullOrEmpty()
+                    val action = object : LspIntentionAction(server, codeAction) {
+                        override fun applyWorkspaceEdit(workspaceEdit: WorkspaceEdit, uriToDocumentMap: Map<String, Document>) {
+                            // Preparation can pump UI events or outlive the request deadline.
+                            if (!isCurrent()) {
+                                stale = true
+                                return
+                            }
+                            val before = document.text
+                            super.applyWorkspaceEdit(workspaceEdit, uriToDocumentMap)
+                            applied = true
+                            changed = changed || document.text != before
+                            expectedStamp = document.modificationStamp
+                        }
+                    }
+                    val available = ReadAction.compute<Boolean, RuntimeException> {
+                        if (!isCurrent()) {
+                            stale = true
+                            false
+                        } else action.isAvailable()
+                    }
+                    if (stale) break
+                    if (available) action.invoke(file)
+                    context.ensureActive()
+                    if (stale) break
+                    if (!available || !applied) skipped = true
+                }
+            }, commandName, groupId)
+        }
+        return when {
+            stale -> Outcome.Stale
+            skipped && changed -> Outcome.PartiallyChanged
+            skipped -> Outcome.NotApplied
+            changed -> Outcome.Changed
+            else -> Outcome.Unchanged
         }
     }
 

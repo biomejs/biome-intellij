@@ -2,7 +2,6 @@ package com.github.biomejs.intellijbiome.actions
 
 import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.BiomeIcons
-import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.github.biomejs.intellijbiome.services.BiomeServerService.Feature
 import com.github.biomejs.intellijbiome.settings.BiomeConfigurable
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
@@ -15,8 +14,6 @@ import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.DumbAware
-import com.intellij.platform.ide.progress.runWithModalProgressBlocking
-import kotlinx.coroutines.withTimeout
 
 class BiomeApplySafeFixesAction : AnAction(), DumbAware {
     init {
@@ -43,20 +40,6 @@ class BiomeApplySafeFixesAction : AnAction(), DumbAware {
             return
         }
 
-        runWithModalProgressBlocking(project,
-            BiomeBundle.message("biome.run.biome.check.with.features", Feature.ApplySafeFixes.toString())) {
-            try {
-                withTimeout(5_000) {
-                    BiomeServerService.getInstance(project).applySafeFixes(editor.document)
-                }
-                notificationGroup.createNotification(title = BiomeBundle.message("biome.apply.safe.fixes.success.label"),
-                    content = BiomeBundle.message("biome.apply.safe.fixes.success.description"),
-                    type = NotificationType.INFORMATION).notify(project)
-            } catch (e: Exception) {
-                notificationGroup.createNotification(title = BiomeBundle.message("biome.apply.safe.fixes.failure.label"),
-                    content = BiomeBundle.message("biome.apply.safe.fixes.failure.description", e.message.toString()),
-                    type = NotificationType.ERROR).notify(project)
-            }
-        }
+        runBiomeManualAction(project, editor.document, virtualFile, Feature.ApplySafeFixes, "biome.apply.safe.fixes")
     }
 }

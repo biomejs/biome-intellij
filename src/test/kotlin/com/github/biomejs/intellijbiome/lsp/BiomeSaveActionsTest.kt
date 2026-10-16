@@ -193,7 +193,7 @@ class BiomeSaveActionsTest : BiomeLspFixtureTestCase() {
                     return false
                 }
             }).use {
-                scope.launch { result.set(runCatching { BiomeServerService.getInstance(project).format(document) }) }
+                scope.launch { result.set(runCatching<Unit> { BiomeServerService.getInstance(project).format(document) }) }
                 PlatformTestUtil.waitWithEventsDispatching("Formatting request did not start", { requestReady.isCompleted }, 10)
                 releaseResponse.complete(Unit)
                 // Do not dispatch EDT events until the write has queued and its
