@@ -1,11 +1,17 @@
 package com.github.biomejs.intellijbiome.services
 
+import com.intellij.codeStyle.AbstractConvertLineSeparatorsAction
 import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
-import com.intellij.codeStyle.AbstractConvertLineSeparatorsAction
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
+import com.intellij.openapi.application.readAction
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.command.execute
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -22,7 +28,12 @@ import org.eclipse.lsp4j.*
 import java.util.*
 
 @Service(Service.Level.PROJECT)
-class BiomeServerService(private val project: Project) {
+class BiomeServerService internal constructor(
+    private val project: Project,
+    private val requests: BiomeLspRequests,
+) {
+    constructor(project: Project) : this(project, DefaultBiomeLspRequests)
+
     private val groupId = "Biome"
 
     enum class Feature {
@@ -57,115 +68,104 @@ class BiomeServerService(private val project: Project) {
         LspServerManager.getInstance(project).stopServers(BiomeLspServerSupportProvider::class.java)
     }
 
-    suspend fun executeFeatures(document: Document,
-        features: EnumSet<Feature>) {
-        val manager = FileDocumentManager.getInstance()
-        val file = manager.getFile(document) ?: return
+    suspend fun executeFeatures(document: Document, features: EnumSet<Feature>) {
+        val file = readAction { FileDocumentManager.getInstance().getFile(document) } ?: return
         val server = getServer(file) ?: return
         val commandName = BiomeBundle.message("biome.run.biome.check.with.features",
-            features.joinToString(prefix = "(", postfix = ")") { it -> it.toString().lowercase() })
+            features.joinToString(prefix = "(", postfix = ")") { it.toString().lowercase() })
 
-        if (features.contains(Feature.ApplySafeFixes) || features.contains(Feature.SortImports)) {
-            if (features.contains(Feature.ApplySafeFixes)) {
-                val codeActionParams = CodeActionParams(server.getDocumentIdentifier(file),
+        for ((feature, kind) in listOf(
+            Feature.ApplySafeFixes to "source.fixAll.biome",
+            Feature.SortImports to "source.organizeImports.biome",
+        )) {
+            if (!features.contains(feature)) continue
+            val (stamp, params) = readAction {
+                document.modificationStamp to CodeActionParams(
+                    server.getDocumentIdentifier(file),
                     getLsp4jRange(document, 0, document.textLength),
                     CodeActionContext().apply {
                         diagnostics = emptyList()
-                        only = listOf("source.fixAll.biome")
+                        only = listOf(kind)
                         triggerKind = CodeActionTriggerKind.Automatic
-                    })
-
-                val codeActionResults = server.sendRequest { it.textDocumentService.codeAction(codeActionParams) }
-
-                WriteCommandAction.runWriteCommandAction(project, commandName, groupId, {
-                    codeActionResults?.forEach {
-                        if (it.isRight) {
-                            val action = LspIntentionAction(server, it.right)
-                            if (action.isAvailable()) {
-                                action.invoke(null)
-                            }
+                    },
+                )
+            }
+            val actions = requests.codeActions(server, params)
+            if (!applyIfCurrent(document, file, stamp, commandName) {
+                    actions?.forEach { result ->
+                        if (result.isRight && result.right.edit != null && result.right.command == null) {
+                            val action = LspIntentionAction(server, result.right)
+                            if (action.isAvailable()) action.invoke(file)
                         }
                     }
-                })
-            }
-
-            if (features.contains(Feature.SortImports)) {
-                val codeActionParams = CodeActionParams(server.getDocumentIdentifier(file),
-                    getLsp4jRange(document, 0, document.textLength),
-                    CodeActionContext().apply {
-                        diagnostics = emptyList()
-                        only = listOf("source.organizeImports.biome")
-                        triggerKind = CodeActionTriggerKind.Automatic
-                    })
-
-                val codeActionResults = server.sendRequest { it.textDocumentService.codeAction(codeActionParams) }
-
-                WriteCommandAction.runWriteCommandAction(project, commandName, groupId, {
-                    codeActionResults?.forEach {
-                        if (it.isRight) {
-                            val action = LspIntentionAction(server, it.right)
-                            if (action.isAvailable()) {
-                                action.invoke(null)
-                            }
-                        }
-                    }
-                })
-            }
+                }) return
         }
 
         if (features.contains(Feature.Format)) {
-            val formattingParams =
-                DocumentFormattingParams(server.getDocumentIdentifier(file), FormattingOptions().apply {
-                    tabSize = 2 // Biome doesn't use this information
-                    isInsertSpaces = false // Biome doesn't use this information
-                })
-
-            val formattingResults = server.sendRequest { it.textDocumentService.formatting(formattingParams) }
-            if (formattingResults.isNullOrEmpty()) {
-                return;
+            val (stamp, params) = readAction {
+                document.modificationStamp to DocumentFormattingParams(
+                    server.getDocumentIdentifier(file),
+                    FormattingOptions(2, false), // Biome does not use these options.
+                )
             }
-
-            // To avoid getting incorrect offsets, we need to run the text edits in a reversed order.
-            formattingResults.reverse();
-
-            val formattingAction = Runnable {
-                var lineSeparator: LineSeparator? = null
-
-                formattingResults.forEach {
-                    val range = getRangeInDocument(document, it.range) ?: return@forEach
-
-                    if (StringUtil.isEmpty(it.newText)) {
-                        document.deleteString(range.startOffset, range.endOffset)
-                    } else {
-                        val normalizedText = StringUtil.convertLineSeparators(it.newText)
-
-                        if (range.endOffset >= 0) {
-                            if (range.length <= 0) {
-                                document.insertString(range.startOffset, normalizedText)
-                            } else {
-                                document.replaceString(range.startOffset, range.endOffset, normalizedText)
-                            }
-                        } else if (range.startOffset > 0) {
-                            document.insertString(range.startOffset, normalizedText)
-                        } else if (!StringUtil.equals(document.charsSequence, normalizedText)) {
-                            document.setText(normalizedText)
-                        }
-                    }
-
-                    StringUtil.detectSeparators(it.newText)?.apply {
-                        lineSeparator = this
-                    }
-                }
-
-                if (lineSeparator != null) {
-                    setDetectedLineSeparator(project, file, lineSeparator)
-                }
+            val edits = requests.formatting(server, params)
+            if (edits != null) {
+                applyIfCurrent(document, file, stamp, commandName) { applyFormatting(document, file, edits) }
             }
-
-            WriteCommandAction.runWriteCommandAction(project, commandName, groupId, {
-                formattingAction.run()
-            })
         }
+    }
+
+    private suspend fun applyIfCurrent(
+        document: Document,
+        file: VirtualFile,
+        stamp: Long,
+        commandName: String,
+        apply: () -> Unit,
+    ): Boolean {
+        val context = currentCoroutineContext()
+        context.ensureActive()
+        return WriteCommandAction.writeCommandAction(project).withName(commandName).withGroupId(groupId).execute {
+            context.ensureActive()
+            ProgressManager.checkCanceled()
+            if (project.isDisposed) throw ProcessCanceledException()
+            if (document.modificationStamp != stamp || !file.isValid) false
+            else {
+                apply()
+                true
+            }
+        }
+    }
+
+    private fun applyFormatting(document: Document, file: VirtualFile, edits: List<TextEdit>) {
+        var lineSeparator: LineSeparator? = null
+
+        edits.asReversed().forEach {
+            val range = getRangeInDocument(document, it.range) ?: return@forEach
+
+            if (StringUtil.isEmpty(it.newText)) {
+                document.deleteString(range.startOffset, range.endOffset)
+            } else {
+                val normalizedText = StringUtil.convertLineSeparators(it.newText)
+
+                if (range.endOffset >= 0) {
+                    if (range.length <= 0) {
+                        document.insertString(range.startOffset, normalizedText)
+                    } else {
+                        document.replaceString(range.startOffset, range.endOffset, normalizedText)
+                    }
+                } else if (range.startOffset > 0) {
+                    document.insertString(range.startOffset, normalizedText)
+                } else if (!StringUtil.equals(document.charsSequence, normalizedText)) {
+                    document.setText(normalizedText)
+                }
+            }
+
+            StringUtil.detectSeparators(it.newText)?.apply {
+                lineSeparator = this
+            }
+        }
+
+        lineSeparator?.let { setDetectedLineSeparator(project, file, it) }
     }
 
     private fun setDetectedLineSeparator(

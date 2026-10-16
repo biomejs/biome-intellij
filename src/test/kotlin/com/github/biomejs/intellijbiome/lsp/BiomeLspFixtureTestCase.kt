@@ -31,7 +31,10 @@ abstract class BiomeLspFixtureTestCase :
 
     override fun tearDown() {
         try {
-            project.service<BiomeServerService>().stopBiomeServer()
+            if (!project.isDisposed) {
+                resetBiomeSettings()
+                project.service<BiomeServerService>().stopBiomeServer()
+            }
         } finally {
             super.tearDown()
         }
@@ -42,6 +45,9 @@ abstract class BiomeLspFixtureTestCase :
         settings.configurationMode = ConfigurationMode.AUTOMATIC
         settings.configPath = ""
         settings.executablePath = ""
+        settings.formatOnSave = false
+        settings.sortImportOnSave = false
+        settings.applySafeFixesOnSave = false
     }
 
     private fun copyFixtureFiles(fixtureName: String) {
