@@ -97,11 +97,16 @@ jobs:
           if-no-files-found: error
 
   native-launcher-tests:
-    name: Windows launcher tests (WSL1)
+    name: Windows launcher tests (WSL${{ matrix.wsl }})
     runs-on: windows-2025
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        wsl: [1, 2]
     env:
-      BIOME_TEST_WSL_DISTRO: BiomeLauncherTests-${{ github.run_id }}-${{ github.run_attempt }}
+      BIOME_TEST_WSL_VERSION: ${{ matrix.wsl }}
+      BIOME_TEST_WSL_DISTRO: BiomeLauncherTests-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.wsl }}
     defaults:
       run:
         shell: pwsh
@@ -111,7 +116,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
-      - name: Import owned WSL1 test distribution
+      - name: Import owned WSL${{ matrix.wsl }} test distribution
         id: wsl
         run: |
           $ErrorActionPreference = 'Stop'
@@ -141,8 +146,10 @@ jobs:
               } finally { $gzip.Dispose() }
             } finally { $compressed.Dispose() }
 
-            & wsl.exe --import $env:BIOME_TEST_WSL_DISTRO $installDirectory $rootfs --version 1
-            if ($LASTEXITCODE -ne 0) { throw "WSL1 import failed: $LASTEXITCODE" }
+            & wsl.exe --version
+            & wsl.exe --status
+            & wsl.exe --import $env:BIOME_TEST_WSL_DISTRO $installDirectory $rootfs --version $env:BIOME_TEST_WSL_VERSION
+            if ($LASTEXITCODE -ne 0) { throw "WSL$env:BIOME_TEST_WSL_VERSION import failed: $LASTEXITCODE" }
             'imported=true' | Add-Content $env:GITHUB_OUTPUT
             & wsl.exe --distribution $env:BIOME_TEST_WSL_DISTRO --user root --exec apt-get update
             if ($LASTEXITCODE -ne 0) { throw "WSL apt-get update failed: $LASTEXITCODE" }
@@ -178,8 +185,8 @@ jobs:
             $listing = ($listing -join "`n").Replace("`0", '')
             Write-Output $listing
             $distributionPattern = [regex]::Escape($env:BIOME_TEST_WSL_DISTRO)
-            if ($listing -notmatch "(?m)^\s*\*?\s*$distributionPattern\s+.+\s+1\s*$") {
-              throw 'The owned distribution is not running as WSL1'
+            if ($listing -notmatch "(?m)^\s*\*?\s*$distributionPattern\s+.+\s+$env:BIOME_TEST_WSL_VERSION\s*$") {
+              throw "The owned distribution is not running as WSL$env:BIOME_TEST_WSL_VERSION"
             }
           } finally {
             Stop-Transcript
@@ -201,7 +208,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: windows-launcher-results
+          name: windows-launcher-results-wsl${{ matrix.wsl }}
           path: |
             build/native-windows
             build/test-results/testCurrentIde
