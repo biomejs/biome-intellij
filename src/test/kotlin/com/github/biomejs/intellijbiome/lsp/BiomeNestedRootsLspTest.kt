@@ -115,6 +115,8 @@ class BiomeNestedRootsLspTest : BiomeLspFixtureTestCase() {
         }, 20)
         val child = servers().single { it.descriptor.roots.toList() == listOf(childFile.parent) }
         events.awaitDiagnostics(childFile, child)
+        val parent = servers().single { it.descriptor.roots.toList() == listOf(parentFile.parent) }
+        events.awaitDiagnostics(parentFile, parent)
         assertIndependentOwners(servers())
         formatExistingDocumentAndAssert(childFile, "const message = 'child';\n")
         assertEquals(editors, FileEditorManager.getInstance(project).getEditors(childFile).toList())

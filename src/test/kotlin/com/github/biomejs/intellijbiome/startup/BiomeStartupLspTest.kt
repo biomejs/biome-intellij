@@ -9,10 +9,13 @@ import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterRef
 import com.intellij.javascript.nodejs.interpreter.local.NodeJsLocalInterpreter
+import com.intellij.openapi.progress.EmptyProgressIndicator
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.BaseProjectDirectories.Companion.getBaseDirectories
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.util.Computable
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
@@ -82,6 +85,22 @@ class BiomeStartupLspTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Modu
         myFixture.addFileToProject("node_modules/@biomejs/biome/bin/biome", nodeLauncher())
         val descriptor = descriptorFor(myFixture.addFileToProject("index.js", "let value = 1;").virtualFile)
         assertFalse("Automatic selection must not execute a version probe", Files.exists(invocationLog))
+        start(descriptor) { assertOnlyLspInvocation(Path.of(myFixture.tempDirPath)) }
+    }
+
+    fun testAutomaticStartupSurvivesDiscoveryIndicatorCancellation() {
+        configureNodeInterpreter()
+        BiomeSettings.getInstance(project).configurationMode = ConfigurationMode.AUTOMATIC
+        myFixture.addFileToProject("package.json", """{"name":"fixture","dependencies":{"@biomejs/biome":"2.5.15"}}""")
+        myFixture.addFileToProject("node_modules/@biomejs/biome/package.json",
+            """{"name":"@biomejs/biome","version":"2.5.15","bin":{"biome":"bin/biome"}}""")
+        myFixture.addFileToProject("node_modules/@biomejs/biome/bin/biome", nodeLauncher())
+        val file = myFixture.addFileToProject("index.js", "let value = 1;").virtualFile
+        val discoveryIndicator = EmptyProgressIndicator()
+        val descriptor = ProgressManager.getInstance().runProcess(Computable { descriptorFor(file) }, discoveryIndicator)
+        discoveryIndicator.cancel()
+
+        // Discovery has finished; its cancellation must not poison the queued Node launch.
         start(descriptor) { assertOnlyLspInvocation(Path.of(myFixture.tempDirPath)) }
     }
 

@@ -11,6 +11,7 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.util.Computable
 import com.intellij.openapi.project.BaseProjectDirectories.Companion.getBaseDirectories
 import com.intellij.openapi.project.Project
@@ -121,10 +122,14 @@ internal class BiomeLspServerDescriptor(
     private val configPath: String?,
     @Volatile private var requestStamp: Long,
 ) : LspServerDescriptor(project, "Biome", root) {
-    private val targetRun: BiomeTargetRun = BiomeTargetRunBuilder(project)
-        .getBuilder(executable, root.path)
-        .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
-        .build()
+    // NodeTargetRun captures its construction-time progress indicator. A cancelled
+    // discovery read must not cancel a later launch, which has its own lifecycle fence.
+    private val targetRun: BiomeTargetRun = ProgressManager.getInstance().runProcess(Computable {
+        BiomeTargetRunBuilder(project)
+            .getBuilder(executable, root.path)
+            .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
+            .build()
+    }, EmptyProgressIndicator())
 
     internal fun refreshStartRequest(stamp: Long) {
         requestStamp = stamp
