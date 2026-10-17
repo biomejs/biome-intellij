@@ -15,6 +15,7 @@ import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.util.registry.Registry
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
@@ -536,6 +537,18 @@ class BiomeManualActionsTest : BiomeLspFixtureTestCase() {
             invoke(action)
             assertEquals(before, myFixture.editor.document.text)
             assertNotification(NotificationType.WARNING, "Biome action timed out", "five seconds")
+        }
+    }
+
+    fun testBothActionsReportConfiguredTimeout() {
+        Registry.get("biome.actions.timeout.ms").setValue(25, testRootDisposable)
+        openFile()
+        replaceRequests { _, _ -> awaitCancellation() }
+        for (action in actions) {
+            val before = myFixture.editor.document.text
+            invoke(action)
+            assertEquals(before, myFixture.editor.document.text)
+            assertNotification(NotificationType.WARNING, "Biome action timed out", "25 milliseconds")
         }
     }
 

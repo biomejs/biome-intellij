@@ -1,6 +1,7 @@
 package com.github.biomejs.intellijbiome.actions
 
 import com.intellij.openapi.diagnostic.ControlFlowException
+import com.intellij.openapi.util.registry.Registry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -10,8 +11,14 @@ internal sealed interface BiomeSaveOutcome {
     data class Failed(val cause: Exception) : BiomeSaveOutcome
 }
 
+internal const val DEFAULT_BIOME_ACTION_TIMEOUT_MS = 5_000L
+
+internal fun biomeActionTimeoutMs(): Long =
+    Registry.intValue("biome.actions.timeout.ms", DEFAULT_BIOME_ACTION_TIMEOUT_MS.toInt())
+        .takeIf { it > 0 }?.toLong() ?: DEFAULT_BIOME_ACTION_TIMEOUT_MS
+
 internal suspend fun runBiomeSaveOperation(
-    timeoutMs: Long = 5_000,
+    timeoutMs: Long = biomeActionTimeoutMs(),
     operation: suspend () -> Unit,
 ): BiomeSaveOutcome {
     var cancellationFromOperation: CancellationException? = null

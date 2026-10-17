@@ -26,7 +26,8 @@ internal fun runBiomeManualAction(
     val group = NotificationGroupManager.getInstance().getNotificationGroup("Biome")
     suspend fun performAction() {
         var result = Outcome.Unavailable
-        val operation = runBiomeSaveOperation {
+        val timeoutMs = biomeActionTimeoutMs()
+        val operation = runBiomeSaveOperation(timeoutMs) {
             if (!prepareSelectedFile || prepareBiomeProjectViewFile(project, file, document)) {
                 result = BiomeServerService.getInstance(project).executeFeatures(document, EnumSet.of(feature))
             }
@@ -46,7 +47,13 @@ internal fun runBiomeManualAction(
                 Outcome.Unavailable -> fileOutcome("unavailable")
                 Outcome.Stale -> fileOutcome("stale")
             }
-            BiomeSaveOutcome.TimedOut -> fileOutcome("timeout")
+            BiomeSaveOutcome.TimedOut -> if (timeoutMs == DEFAULT_BIOME_ACTION_TIMEOUT_MS) {
+                fileOutcome("timeout")
+            } else {
+                Triple(BiomeBundle.message("biome.manual.timeout.title"),
+                    BiomeBundle.message("biome.manual.timeout.configured.description", file.name, timeoutMs),
+                    NotificationType.WARNING)
+            }
             is BiomeSaveOutcome.Failed -> Triple(BiomeBundle.message("$messagePrefix.failure.label"),
                 BiomeBundle.message("$messagePrefix.failure.description", operation.cause.message ?: operation.cause.toString()),
                 NotificationType.ERROR)
