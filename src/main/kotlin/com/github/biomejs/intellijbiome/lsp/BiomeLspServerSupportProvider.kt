@@ -31,6 +31,9 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         file: VirtualFile,
         serverStarter: LspServerSupportProvider.LspServerStarter,
     ) {
+        if (project.isDisposed) return
+        val settings = BiomeSettings.getInstance(project)
+        if (!settings.isEnabled() || !settings.fileSupported(file)) return
         val biome = BiomePackage(project)
         val configPath = biome.configPath()
 
