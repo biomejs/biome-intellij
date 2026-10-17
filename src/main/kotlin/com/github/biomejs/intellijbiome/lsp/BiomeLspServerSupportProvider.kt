@@ -30,6 +30,7 @@ import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.Diagnostic
 import java.io.IOException
+import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 
@@ -266,7 +267,10 @@ internal class BiomeLspServerDescriptor(
         }
 
         return BiomeLspWorkspaceSettings().apply {
-            configurationPath = configPath?.takeIf { it.isNotBlank() }
+            configurationPath = configPath?.takeIf { it.isNotBlank() }?.let {
+                // Relative overrides belong to the server's workspace; absolute host paths need target mapping.
+                if (Path.of(it).isAbsolute) targetRun.toTargetPath(it) else it
+            }
         }
     }
 }
