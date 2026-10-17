@@ -39,17 +39,22 @@ the headless plugin and LSP regression tests:
 ```sh
 corepack enable
 corepack prepare pnpm@10.5.2 --activate
-./gradlew test
+./gradlew testCurrentIde
 ```
 
 Gradle discovers every headless test. The task fails if no tests run or any test
 fails or is skipped. Tests always execute; compilation and dependency caches
-remain available. XML and HTML reports are written under `build/test-results/test`
-and `build/reports/tests/test`.
+remain available. XML and HTML reports are written under `build/test-results/testCurrentIde`
+and `build/reports/tests/testCurrentIde`.
 
 The test task uses the SDK's JetBrains Runtime and a separate Biome daemon cache
 for each checkout and runtime task. Tag Remote Robot tests with `remote-robot`;
 they require a running IDE and are excluded from the headless suite.
+
+CI tests only the stable WebStorm version pinned by `currentIde*` in
+`gradle.properties`. Update the IDE version/build, test framework, and bundled
+Kotlin pins together for the next stable release. Use `-PcurrentIdePath=...` for a
+local installation matching those pins. The compile SDK remains unchanged.
 
 ### Remote Robot UI tests
 

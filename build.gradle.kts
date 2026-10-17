@@ -1,9 +1,14 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import org.jetbrains.intellij.platform.gradle.tasks.TestIdeTask
 import java.io.File
 import java.security.MessageDigest
 
 val remoteRobotVersion = "0.11.21"
 val testPlatformKotlinVersion = "2.2.20"
+val minimumIdeBuild = "WS-253.28294.332"
+val currentIdeVersion = providers.gradleProperty("currentIdeVersion").get()
+val currentIdeBuild = providers.gradleProperty("currentIdeBuild").get()
 
 plugins {
   id("java") // Java support
@@ -102,12 +107,36 @@ intellijPlatform {
 }
 
 tasks {
+  test {
+    systemProperty("biome.test.expected.build", minimumIdeBuild)
+    systemProperty("biome.test.expected.kotlin", testPlatformKotlinVersion)
+  }
   wrapper {
     gradleVersion = providers.gradleProperty("gradleVersion").get()
   }
 }
 
 intellijPlatformTesting {
+  testIde {
+    register("testCurrentIde") {
+      type = IntelliJPlatformType.WebStorm
+      version = currentIdeVersion
+      providers.gradleProperty("currentIdePath").orNull?.let { localPath = file(it) }
+      // Platform framework published for the target IDE's platform build.
+      testFramework(TestFrameworkType.Platform, providers.gradleProperty("currentIdeTestFrameworkVersion").get())
+      plugins {
+        bundledPlugins(providers.gradleProperty("platformBundledPlugins").get().split(',') + listOf(
+          "intellij.testRunner.plugin", "intellij.structureView.plugin", "com.intellij.modules.json", "NodeJS",
+          "com.intellij.modules.jcef", "intellij.libraries.misc.plugin", "intellij.ssh.plugin",
+          "intellij.bookmarks.plugin", "com.intellij.platform.images",
+        ))
+      }
+      task {
+        systemProperty("biome.test.expected.build", currentIdeBuild)
+        systemProperty("biome.test.expected.kotlin", providers.gradleProperty("currentIdeKotlinVersion").get())
+      }
+    }
+  }
   runIde {
     register("runIdeForUiTests") {
       task {
@@ -169,4 +198,9 @@ tasks.withType<Test>().configureEach {
     .digest("${projectDir.absolutePath}:$name".toByteArray(Charsets.UTF_8))
     .take(8).joinToString("") { "%02x".format(it) }
   environment("XDG_CACHE_HOME", File(System.getProperty("java.io.tmpdir"), "biome-test-$cacheKey").absolutePath)
+}
+
+// TestIde must load the target IDE's Kotlin runtime rather than the minimum SDK's test BOM.
+tasks.withType<TestIdeTask>().configureEach {
+  classpath = classpath.filter { !it.name.startsWith("kotlin-stdlib") }
 }
