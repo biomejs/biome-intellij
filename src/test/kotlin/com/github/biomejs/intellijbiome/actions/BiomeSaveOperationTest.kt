@@ -170,7 +170,7 @@ private class SaveTestScheduler : CoroutineDispatcher(), Delay {
     }
 }
 
-private fun runScheduled(block: suspend CoroutineScope.() -> Unit) {
+internal fun runScheduled(block: suspend CoroutineScope.() -> Unit) {
     val scheduler = SaveTestScheduler()
     val scope = CoroutineScope(SupervisorJob() + scheduler)
     var result: Result<Unit>? = null
