@@ -6,11 +6,13 @@ import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.intellij.execution.configurations.GeneralCommandLine
+import com.intellij.execution.wsl.WSLDistribution
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterRef
 import com.intellij.javascript.nodejs.interpreter.local.NodeJsLocalInterpreter
 import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.BaseProjectDirectories.Companion.getBaseDirectories
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.roots.ModuleRootManager
@@ -33,6 +35,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.eclipse.lsp4j.ConfigurationItem
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -117,6 +120,78 @@ class BiomeStartupLspTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Modu
                 assertEquals("Transport must preserve the selected path", selected, BiomeSettings.getInstance(project).configPath)
             }
         }
+    }
+
+    fun testAbsoluteManualConfigurationUsesSelectedTargetPath() {
+        val selected = myFixture.addFileToProject("selected config.jsonc", "{}").virtualFile.path
+        val file = myFixture.addFileToProject("index.js", "let value = 1;").virtualFile
+        BiomeSettings.getInstance(project).configPath = selected
+        val descriptor = descriptorFor(file)
+        useMappedTarget(descriptor)
+
+        start(descriptor) {
+            assertWorkspaceConfiguration("/mapped workspace/selected config.jsonc")
+            assertEquals("file:///mapped%20workspace/index.js", descriptor.getFileUri(file))
+            assertEquals(file, descriptor.findFileByUri("file:///mapped%20workspace/index.js"))
+            assertEquals("Transport must not rewrite the saved override", selected,
+                BiomeSettings.getInstance(project).configPath)
+        }
+    }
+
+    fun testRelativeManualConfigurationKeepsTargetWorkspaceMeaning() {
+        val selected = "configs/../selected config.jsonc"
+        val file = myFixture.addFileToProject("index.js", "let value = 1;").virtualFile
+        BiomeSettings.getInstance(project).configPath = selected
+        val descriptor = descriptorFor(file)
+        useMappedTarget(descriptor)
+
+        start(descriptor) {
+            assertWorkspaceConfiguration(selected)
+            assertEquals(selected, BiomeSettings.getInstance(project).configPath)
+        }
+    }
+
+    fun testManualConfigurationDoesNotHideTargetMappingFailure() {
+        val selected = myFixture.addFileToProject("selected config.jsonc", "{}").virtualFile.path
+        BiomeSettings.getInstance(project).configPath = selected
+        val descriptor = descriptorFor(myFixture.addFileToProject("index.js", "let value = 1;").virtualFile)
+        val failure = IllegalArgumentException("Selected configuration is outside the target")
+        useMappedTarget(descriptor) { throw failure }
+
+        try {
+            descriptor.getWorkspaceConfiguration(ConfigurationItem().apply { section = "biome" })
+            fail("A failed conversion must not send the host path to the target")
+        } catch (actual: IllegalArgumentException) {
+            assertSame(failure, actual)
+        }
+    }
+
+    fun testManualConfigurationPreservesTargetMappingCancellation() {
+        val selected = myFixture.addFileToProject("selected config.jsonc", "{}").virtualFile.path
+        BiomeSettings.getInstance(project).configPath = selected
+        val descriptor = descriptorFor(myFixture.addFileToProject("index.js", "let value = 1;").virtualFile)
+        val cancellation = ProcessCanceledException()
+        useMappedTarget(descriptor) { throw cancellation }
+
+        try {
+            descriptor.getWorkspaceConfiguration(ConfigurationItem().apply { section = "biome" })
+            fail("Cancellation must propagate out of target-path conversion")
+        } catch (actual: ProcessCanceledException) {
+            assertSame(cancellation, actual)
+        }
+    }
+
+    fun testManualConfigurationRejectsUnmappableAbsoluteTargetPath() {
+        val selected = myFixture.addFileToProject("unreachable config.jsonc", "{}").virtualFile.path
+        BiomeSettings.getInstance(project).configPath = selected
+        val descriptor = descriptorFor(myFixture.addFileToProject("index.js", "let value = 1;").virtualFile)
+        useMappedTarget(descriptor) { null }
+
+        val failure = org.junit.Assert.assertThrows(Exception::class.java) {
+            descriptor.getWorkspaceConfiguration(ConfigurationItem().apply { section = "biome" })
+        }
+        assertTrue("Report the configuration that could not be mapped", failure.message.orEmpty().contains(selected))
+        assertEquals(selected, BiomeSettings.getInstance(project).configPath)
     }
 
     fun testDirectStartupUsesSelectedSecondContentRoot() {
@@ -222,6 +297,29 @@ class BiomeStartupLspTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Modu
             override fun ensureServerStarted(descriptor: LspServerDescriptor) { descriptors += descriptor }
         })
         return descriptors.single()
+    }
+
+    // Exercise the real LSP response with a controlled mapper, without launching Windows/WSL.
+    private fun useMappedTarget(descriptor: LspServerDescriptor, convert: ((Path) -> String?)? = null) {
+        val localRoot = Path.of(myFixture.tempDirPath)
+        val targetRoot = "/mapped workspace"
+        val distribution = object : WSLDistribution("Biome mapped-path fixture") {
+            override fun getWslPath(path: Path): String? {
+                if (convert != null) return convert(path)
+                check(path.isAbsolute && path.startsWith(localRoot)) { "Unexpected host path: $path" }
+                val relative = localRoot.relativize(path).toString().replace('\\', '/')
+                return if (relative.isEmpty()) targetRoot else "$targetRoot/$relative"
+            }
+
+            override fun getWindowsPath(path: String): String {
+                check(path == targetRoot || path.startsWith("$targetRoot/")) { "Unexpected target path: $path" }
+                return localRoot.resolve(path.removePrefix(targetRoot).removePrefix("/")).toString()
+            }
+        }
+        val command = GeneralCommandLine(executable.toString(), "lsp-proxy")
+            .withWorkDirectory(localRoot.toFile()).withCharset(Charsets.UTF_8)
+        descriptor.javaClass.getDeclaredField("targetRun").apply { isAccessible = true }
+            .set(descriptor, BiomeTargetRun.General(command, distribution))
     }
 
     private fun start(descriptor: LspServerDescriptor, verify: (LspServer) -> Unit) {
