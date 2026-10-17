@@ -69,6 +69,13 @@
     />
   </extensions>
   <actions>
+    <action id="BiomeImportCodeStyle"
+            text="Import Code Style from Biome"
+            description="Import indentation, quotes and semicolons for the selected JavaScript or TypeScript file into project code style"
+            class="com.github.biomejs.intellijbiome.codestyle.BiomeImportCodeStyleAction">
+      <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+      <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+    </action>
     <action
       id="BiomeSortImportAction"
       text="Sort Import with Biome"
