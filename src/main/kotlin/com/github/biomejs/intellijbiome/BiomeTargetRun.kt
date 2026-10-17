@@ -59,6 +59,10 @@ sealed interface BiomeTargetRun {
     ) : BiomeTargetRun {
         override fun startProcess(): OSProcessHandler =
             wrapStartProcess {
+                if (wslDistribution == null && isLocalBiomeLspProxy(command.parametersList.list,
+                        command.exePath, command.workDirectory?.path)) {
+                    return@wrapStartProcess BiomeLspProxyProcessHandler(command)
+                }
                 object : CapturingProcessHandler(command) {
                     override fun readerOptions(): BaseOutputReader.Options {
                         return object : BaseOutputReader.Options() {

@@ -120,14 +120,24 @@ private class BiomeLspServerDescriptor(
                 }
                 try {
                     if (!handler.process.waitFor(1_000, TimeUnit.MILLISECONDS)) {
-                        handler.process.destroyForcibly()
+                        forceStopUnclaimedProcess(handler)
                         handler.process.waitFor(1_000, TimeUnit.MILLISECONDS)
                     }
                 } catch (_: InterruptedException) {
-                    handler.process.destroyForcibly()
+                    forceStopUnclaimedProcess(handler)
                     Thread.currentThread().interrupt()
                 }
             }
+        }
+    }
+
+    private fun forceStopUnclaimedProcess(handler: OSProcessHandler) {
+        if (handler is BiomeLspProxyProcessHandler) {
+            // General retains its raw Process, so use the handler's captured proxy ownership.
+            handler.killProcess()
+        } else {
+            // The local Node route already wraps its Process; preserve other routes' cleanup.
+            handler.process.destroyForcibly()
         }
     }
 
