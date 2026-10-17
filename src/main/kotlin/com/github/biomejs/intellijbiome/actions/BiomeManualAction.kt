@@ -6,6 +6,7 @@ import com.github.biomejs.intellijbiome.services.BiomeServerService.Feature
 import com.github.biomejs.intellijbiome.services.BiomeServerService.Outcome
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
+import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -20,12 +21,15 @@ internal fun runBiomeManualAction(
     file: VirtualFile,
     feature: Feature,
     messagePrefix: String,
+    prepareSelectedFile: Boolean = false,
 ) {
     val group = NotificationGroupManager.getInstance().getNotificationGroup("Biome")
-    runWithModalProgressBlocking(project, BiomeBundle.message("biome.run.biome.check.with.features", feature.toString())) {
+    suspend fun performAction() {
         var result = Outcome.Unavailable
         val operation = runBiomeSaveOperation {
-            result = BiomeServerService.getInstance(project).executeFeatures(document, EnumSet.of(feature))
+            if (!prepareSelectedFile || prepareBiomeProjectViewFile(project, file, document)) {
+                result = BiomeServerService.getInstance(project).executeFeatures(document, EnumSet.of(feature))
+            }
         }
         currentCoroutineContext().ensureActive()
         fun fileOutcome(message: String, type: NotificationType = NotificationType.WARNING) =
@@ -48,5 +52,12 @@ internal fun runBiomeManualAction(
                 NotificationType.ERROR)
         }
         group.createNotification(title, content, type).notify(project)
+    }
+    val progressTitle = BiomeBundle.message("biome.run.biome.check.with.features", feature.toString())
+    if (prepareSelectedFile) {
+        // SDK startup and document-open work require non-modal event processing.
+        project.service<BiomeProjectViewActionRunner>().run(progressTitle) { performAction() }
+    } else {
+        runWithModalProgressBlocking(project, progressTitle) { performAction() }
     }
 }
