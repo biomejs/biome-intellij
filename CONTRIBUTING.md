@@ -65,6 +65,12 @@ The Remote Robot suite needs the UI test IDE running in another process:
 ./gradlew test -PuiTests
 ```
 
+### Plugin compatibility
+
+Run `./gradlew verifyPlugin` to build the plugin and check compatibility with the
+same stable WebStorm pin used by the regression suite. CI uploads the verifier
+reports from `build/reports/pluginVerifier`.
+
 ## Making changes
 
 1. **Create a branch.** Before making any changes, create a branch to work on.

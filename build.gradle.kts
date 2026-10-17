@@ -1,6 +1,7 @@
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.intellij.platform.gradle.tasks.TestIdeTask
+import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask
 import java.io.File
 import java.security.MessageDigest
 
@@ -72,6 +73,7 @@ dependencies {
     plugins(providers.gradleProperty("platformPlugins").map { it.split(',') })
 
     testFramework(TestFrameworkType.Platform)
+    pluginVerifier()
   }
 }
 
@@ -100,8 +102,16 @@ intellijPlatform {
   }
 
   pluginVerification {
+    failureLevel = listOf(
+      VerifyPluginTask.FailureLevel.COMPATIBILITY_PROBLEMS,
+      VerifyPluginTask.FailureLevel.INVALID_PLUGIN,
+      VerifyPluginTask.FailureLevel.MISSING_DEPENDENCIES,
+      VerifyPluginTask.FailureLevel.PLUGIN_STRUCTURE_WARNINGS,
+    )
     ides {
-      recommended()
+      val currentPath = providers.gradleProperty("currentIdePath")
+      if (currentPath.isPresent) local(currentPath.get())
+      else create(IntelliJPlatformType.WebStorm, currentIdeVersion)
     }
   }
 }
