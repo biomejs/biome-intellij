@@ -18,9 +18,9 @@ class BiomeSettings :
             state.executablePath = value
         }
     var configPath: String
-        get() = state.configPath ?: ""
+        get() = state.configPath?.takeUnless { it.isBlank() } ?: ""
         set(value) {
-            state.configPath = value
+            state.configPath = if (value.isBlank()) "" else value
         }
 
     var supportedExtensions: MutableList<String>
