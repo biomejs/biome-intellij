@@ -21,8 +21,11 @@ import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.LspServer
+import com.intellij.platform.lsp.api.Lsp4jClient
 import com.intellij.platform.lsp.api.LspServerDescriptor
+import com.intellij.platform.lsp.api.LspServerListener
 import com.intellij.platform.lsp.api.LspServerManager
+import com.intellij.platform.lsp.api.LspServerNotificationsHandler
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.customization.LspDiagnosticsSupport
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
@@ -30,6 +33,7 @@ import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.Diagnostic
+import org.eclipse.lsp4j.PublishDiagnosticsParams
 import java.io.IOException
 import java.net.URI
 import java.net.URISyntaxException
@@ -231,6 +235,26 @@ internal class BiomeLspServerDescriptor(
 
     override fun findLocalFileByPath(path: String): VirtualFile? =
         super.findLocalFileByPath(targetRun.toLocalPath(path))
+
+    override fun createLsp4jClient(handler: LspServerNotificationsHandler): Lsp4jClient =
+        super.createLsp4jClient(object : LspServerNotificationsHandler by handler {
+            override fun publishDiagnostics(params: PublishDiagnosticsParams) {
+                handler.publishDiagnostics(params)
+                if (!project.isDisposed) {
+                    project.messageBus.syncPublisher(BiomeLspDocumentListener.TOPIC)
+                        .diagnosticsPublished(this@BiomeLspServerDescriptor, params)
+                }
+            }
+        })
+
+    override val lspServerListener = object : LspServerListener {
+        override fun serverStopped(shutdownNormally: Boolean) {
+            if (!project.isDisposed) {
+                project.messageBus.syncPublisher(BiomeLspDocumentListener.TOPIC)
+                    .serverStopped(this@BiomeLspServerDescriptor)
+            }
+        }
+    }
 
     override val lspGoToDefinitionSupport = false
     override val lspCompletionSupport = null
