@@ -95,3 +95,117 @@ jobs:
             build/test-results/testCurrentIde
             build/reports/tests/testCurrentIde
           if-no-files-found: error
+
+  native-launcher-tests:
+    name: Windows launcher tests (WSL1)
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      BIOME_TEST_WSL_DISTRO: BiomeLauncherTests-${{ github.run_id }}-${{ github.run_attempt }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - name: Import owned WSL1 test distribution
+        id: wsl
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          New-Item -ItemType Directory -Force build/native-windows | Out-Null
+          Start-Transcript -Path build/native-windows/wsl-setup.log
+          try {
+            $windowsNode = (Get-Command node.exe -CommandType Application | Select-Object -First 1).Source
+            "BIOME_TEST_WINDOWS_NODE=$windowsNode" | Add-Content $env:GITHUB_ENV
+            & $windowsNode --version
+            if ($LASTEXITCODE -ne 0) { throw "Windows Node failed: $LASTEXITCODE" }
+
+            $archive = Join-Path $env:RUNNER_TEMP 'biome-ubuntu-noble.rootfs.tar.gz'
+            $rootfs = Join-Path $env:RUNNER_TEMP 'biome-ubuntu-noble.rootfs.tar'
+            $installDirectory = Join-Path $env:RUNNER_TEMP $env:BIOME_TEST_WSL_DISTRO
+            Invoke-WebRequest -Uri 'https://cloud-images.ubuntu.com/wsl/releases/noble/20240423/ubuntu-noble-wsl-amd64-24.04lts.rootfs.tar.gz' -OutFile $archive
+            $expectedHash = '2a790896740b14d637dbdc583cce1ba081ac53b9e9cdb46dc09a2f73abbd9934'
+            if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne $expectedHash) {
+              throw 'The pinned Ubuntu rootfs checksum does not match'
+            }
+            $compressed = [System.IO.File]::OpenRead($archive)
+            try {
+              $gzip = [System.IO.Compression.GZipStream]::new($compressed, [System.IO.Compression.CompressionMode]::Decompress)
+              try {
+                $expanded = [System.IO.File]::Create($rootfs)
+                try { $gzip.CopyTo($expanded) } finally { $expanded.Dispose() }
+              } finally { $gzip.Dispose() }
+            } finally { $compressed.Dispose() }
+
+            & wsl.exe --import $env:BIOME_TEST_WSL_DISTRO $installDirectory $rootfs --version 1
+            if ($LASTEXITCODE -ne 0) { throw "WSL1 import failed: $LASTEXITCODE" }
+            'imported=true' | Add-Content $env:GITHUB_OUTPUT
+            & wsl.exe --distribution $env:BIOME_TEST_WSL_DISTRO --user root --exec apt-get update
+            if ($LASTEXITCODE -ne 0) { throw "WSL apt-get update failed: $LASTEXITCODE" }
+            & wsl.exe --distribution $env:BIOME_TEST_WSL_DISTRO --user root --exec apt-get install --yes --no-install-recommends xz-utils
+            if ($LASTEXITCODE -ne 0) { throw "WSL archive tools installation failed: $LASTEXITCODE" }
+
+            # Ubuntu's Node ELF layout is rejected by WSL1; keep an unmodified official Node 22 fixture.
+            $nodeArchive = Join-Path $env:RUNNER_TEMP 'node-v22.21.1-linux-x64.tar.xz'
+            Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.21.1/node-v22.21.1-linux-x64.tar.xz' -OutFile $nodeArchive
+            $nodeHash = '680d3f30b24a7ff24b98db5e96f294c0070f8f9078df658da1bce1b9c9873c88'
+            if ((Get-FileHash $nodeArchive -Algorithm SHA256).Hash -ne $nodeHash) {
+              throw 'The pinned Node archive checksum does not match'
+            }
+            Copy-Item $nodeArchive "\\wsl.localhost\$env:BIOME_TEST_WSL_DISTRO\tmp\biome-node.tar.xz"
+            & wsl.exe --distribution $env:BIOME_TEST_WSL_DISTRO --exec mkdir -p /opt/biome-node
+            if ($LASTEXITCODE -ne 0) { throw "WSL Node directory creation failed: $LASTEXITCODE" }
+            & wsl.exe --distribution $env:BIOME_TEST_WSL_DISTRO --exec tar -xJf /tmp/biome-node.tar.xz -C /opt/biome-node --strip-components=1
+            if ($LASTEXITCODE -ne 0) { throw "WSL Node extraction failed: $LASTEXITCODE" }
+            & wsl.exe --distribution $env:BIOME_TEST_WSL_DISTRO --exec ln -s /opt/biome-node/bin/node /usr/local/bin/node
+            if ($LASTEXITCODE -ne 0) { throw "WSL Node PATH setup failed: $LASTEXITCODE" }
+
+            $nodeOutput = & wsl.exe --distribution $env:BIOME_TEST_WSL_DISTRO --exec sh -lc 'readlink -f "$(command -v node)"'
+            if ($LASTEXITCODE -ne 0) { throw "WSL Node resolution failed: $LASTEXITCODE" }
+            $wslNode = ($nodeOutput -join "`n").Trim()
+            if (-not $wslNode.StartsWith('/') -or $wslNode.Contains("`n")) { throw 'Invalid WSL Node executable path' }
+            "BIOME_TEST_WSL_NODE=$wslNode" | Add-Content $env:GITHUB_ENV
+            & wsl.exe --distribution $env:BIOME_TEST_WSL_DISTRO --exec $wslNode --version
+            if ($LASTEXITCODE -ne 0) { throw "WSL Node failed: $LASTEXITCODE" }
+            & wsl.exe --distribution $env:BIOME_TEST_WSL_DISTRO --exec uname -a
+            if ($LASTEXITCODE -ne 0) { throw "WSL kernel inspection failed: $LASTEXITCODE" }
+            $listing = & wsl.exe --list --verbose
+            if ($LASTEXITCODE -ne 0) { throw "WSL distribution inspection failed: $LASTEXITCODE" }
+            $listing = ($listing -join "`n").Replace("`0", '')
+            Write-Output $listing
+            $distributionPattern = [regex]::Escape($env:BIOME_TEST_WSL_DISTRO)
+            if ($listing -notmatch "(?m)^\s*\*?\s*$distributionPattern\s+.+\s+1\s*$") {
+              throw 'The owned distribution is not running as WSL1'
+            }
+          } finally {
+            Stop-Transcript
+          }
+      - name: Run native tests on the pinned current IDE
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          & .\gradlew.bat testCurrentIde -PnativeWindowsTests --console=plain --no-daemon --max-workers=2 "-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m" "-Pkotlin.compiler.execution.strategy=in-process" 2>&1 | Tee-Object -FilePath build/native-windows/tests.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Unregister owned test distribution
+        if: ${{ always() && steps.wsl.outputs.imported == 'true' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          & wsl.exe --unregister $env:BIOME_TEST_WSL_DISTRO 2>&1 | Tee-Object -FilePath build/native-windows/wsl-cleanup.log
+          if ($LASTEXITCODE -ne 0) { throw "WSL cleanup failed: $LASTEXITCODE" }
+      - name: Upload native launcher results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-launcher-results
+          path: |
+            build/native-windows
+            build/test-results/testCurrentIde
+            build/reports/tests/testCurrentIde
+            .intellijPlatform/sandbox/**/log_testCurrentIde
+          include-hidden-files: true
+          if-no-files-found: error
