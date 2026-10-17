@@ -2,6 +2,7 @@ package com.github.biomejs.intellijbiome.services
 
 import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
+import com.github.biomejs.intellijbiome.lsp.BiomeLspLifecycleService
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.readAction
@@ -20,6 +21,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.impl.LoadTextUtil
@@ -73,11 +75,16 @@ class BiomeServerService internal constructor(
         executeFeatures(document, EnumSet.of(Feature.Format))
 
     fun restartBiomeServer() {
+        project.service<BiomeLspLifecycleService>().restartAll()
         LspServerManager.getInstance(project).stopAndRestartIfNeeded(BiomeLspServerSupportProvider::class.java)
     }
 
     fun stopBiomeServer() {
-        LspServerManager.getInstance(project).stopServers(BiomeLspServerSupportProvider::class.java)
+        val manager = LspServerManager.getInstance(project)
+        val roots = manager.getServersForProvider(BiomeLspServerSupportProvider::class.java)
+            .flatMap { it.descriptor.roots.toList() }
+        project.service<BiomeLspLifecycleService>().stopAll(roots)
+        manager.stopServers(BiomeLspServerSupportProvider::class.java)
     }
 
     suspend fun executeFeatures(document: Document, features: EnumSet<Feature>): Outcome {
