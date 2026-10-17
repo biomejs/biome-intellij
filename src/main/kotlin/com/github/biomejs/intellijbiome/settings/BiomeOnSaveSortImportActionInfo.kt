@@ -22,7 +22,7 @@ class BiomeOnSaveSortImportActionInfo(actionOnSaveContext: ActionOnSaveContext) 
         !configurable.disabledConfiguration.isSelected
 
     override fun isActionOnSaveEnabledAccordingToStoredState() =
-        BiomeSettings.getInstance(project).sortImportOnSave
+        BiomeSettings.getInstance(project).state.sortImportOnSave
 
     override fun isActionOnSaveEnabledAccordingToUiState(configurable: BiomeConfigurable) =
         configurable.sortImportOnSaveCheckBox.isSelected
