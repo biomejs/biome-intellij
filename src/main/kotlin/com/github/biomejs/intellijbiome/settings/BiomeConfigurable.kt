@@ -2,23 +2,22 @@ package com.github.biomejs.intellijbiome.settings
 
 import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.BiomePackage
-import com.github.biomejs.intellijbiome.extensions.isBiomeConfigFile
 import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.intellij.ide.actionsOnSave.ActionsOnSaveConfigurable
 import com.intellij.lang.javascript.JavaScriptBundle
 import com.intellij.openapi.application.ApplicationNamesInfo
 import com.intellij.openapi.components.service
 import com.intellij.openapi.options.BoundSearchableConfigurable
+import com.intellij.openapi.options.ConfigurationException
+import com.intellij.openapi.project.BaseProjectDirectories.Companion.getBaseDirectories
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.ui.ValidationInfo
-import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.ContextHelpLabel
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.*
-import com.intellij.ui.layout.ValidationInfoBuilder
 import com.intellij.ui.layout.not
 import com.intellij.ui.layout.selected
 import com.intellij.util.ui.JBUI
@@ -26,6 +25,8 @@ import com.intellij.util.ui.UIUtil
 import javax.swing.JCheckBox
 import javax.swing.JRadioButton
 import javax.swing.event.HyperlinkEvent
+import java.nio.file.Files
+import java.nio.file.InvalidPathException
 import kotlin.io.path.Path
 
 private const val HELP_TOPIC = "reference.settings.biome"
@@ -41,6 +42,13 @@ class BiomeConfigurable(internal val project: Project) :
     private lateinit var automaticConfiguration: JRadioButton
     private lateinit var manualConfiguration: JRadioButton
     private lateinit var extensionsField: JBTextField
+    private lateinit var configPathField: TextFieldWithBrowseButton
+
+    override fun apply() {
+        createComponent()
+        validateConfigPath(configPathField)?.let { throw ConfigurationException(it.message) }
+        super.apply()
+    }
 
     override fun createPanel(): DialogPanel {
         val settings: BiomeSettings = BiomeSettings.getInstance(project)
@@ -91,10 +99,14 @@ class BiomeConfigurable(internal val project: Project) :
                 }.visibleIf(manualConfiguration.selected)
 
                 row(BiomeBundle.message("biome.config.path.label")) {
-                    textFieldWithBrowseButton(
+                    configPathField = textFieldWithBrowseButton(
                         BiomeBundle.message("biome.config.path.label"),
                         project,
-                    ) { fileChosen(it) }.bindText(settings::configPath).validationOnInput(validateConfigDir())
+                    ) { fileChosen(it) }.bindText(settings::configPath)
+                        .validationOnInput { validateConfigPath(it) }
+                        .validationOnApply { validateConfigPath(it) }
+                        .comment(BiomeBundle.message("biome.config.path.help"))
+                        .component
                 }.visibleIf(manualConfiguration.selected)
             }
 
@@ -212,17 +224,31 @@ class BiomeConfigurable(internal val project: Project) :
         }
     }
 
-    private fun validateConfigDir(): ValidationInfoBuilder.(TextFieldWithBrowseButton) -> ValidationInfo? = {
-        val selected = VfsUtil.findFile(Path(it.text), true)
-        if (selected == null || !selected.exists()) {
-            ValidationInfo(BiomeBundle.message("biome.configuration.file.not.found"), it)
-        } else {
-            if (!selected.isBiomeConfigFile()) {
-                ValidationInfo(BiomeBundle.message("biome.configuration.file.not.found"), it)
-            } else {
-                null
+    private fun validateConfigPath(field: TextFieldWithBrowseButton): ValidationInfo? {
+        if (!manualConfiguration.isSelected || field.text.isBlank()) return null
+
+        val valid = try {
+            val path = Path(field.text)
+            // A relative setting for future projects has no filesystem base to validate yet.
+            if (!path.isAbsolute && project.isDefault) return null
+            val paths = if (path.isAbsolute) listOf(path) else {
+                project.getBaseDirectories().map { it.toNioPath().resolve(path) }
             }
+            if (paths.isEmpty()) return null
+            val configNames = listOf("biome.json", "biome.jsonc")
+            paths.any { candidate ->
+                when {
+                    Files.isRegularFile(candidate) -> candidate.fileName.toString().let {
+                        it.endsWith(".json") || it.endsWith(".jsonc")
+                    }
+                    Files.isDirectory(candidate) -> configNames.any { Files.isRegularFile(candidate.resolve(it)) }
+                    else -> false
+                }
+            }
+        } catch (_: InvalidPathException) {
+            false
         }
+        return if (valid) null else ValidationInfo(BiomeBundle.message("biome.configuration.file.not.found"), field)
     }
 
     private fun fileChosen(file: VirtualFile): String {
