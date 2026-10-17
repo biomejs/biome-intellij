@@ -96,6 +96,7 @@ class BiomeConfigurable(internal val project: Project) :
                 row(BiomeBundle.message("biome.path.executable")) {
                     textFieldWithBrowseButton(BiomeBundle.message("biome.path.executable")) { fileChosen(it) }.bindText(
                         settings::executablePath)
+                        .comment(BiomeBundle.message("biome.path.executable.help"))
                 }.visibleIf(manualConfiguration.selected)
 
                 row(BiomeBundle.message("biome.config.path.label")) {
