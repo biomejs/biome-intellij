@@ -371,7 +371,11 @@ class BiomeManualActionsTest : BiomeLspFixtureTestCase() {
             null
         }
         for (action in actions) {
-            FileEditorManager.getInstance(project).let { manager -> manager.openFiles.forEach(manager::closeFile) }
+            val editors = FileEditorManager.getInstance(project)
+            editors.openFiles.forEach(editors::closeFile)
+            // The SDK test manager omits the desktop notification that marks a real reopen.
+            project.messageBus.syncPublisher(com.intellij.openapi.fileEditor.FileEditorManagerListener.Before.FILE_EDITOR_MANAGER)
+                .beforeFileOpened(editors, myFixture.findFileInTempDir("first.js")!!)
             openFile()
             val before = myFixture.editor.document.text
             invoke(action)

@@ -3,16 +3,20 @@ package com.github.biomejs.intellijbiome.lsp
 import com.github.biomejs.intellijbiome.*
 import com.intellij.openapi.util.text.StringUtil
 import com.github.biomejs.intellijbiome.extensions.findNearestBiomeConfig
-import com.github.biomejs.intellijbiome.settings.BiomeConfigurable
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.util.Computable
 import com.intellij.openapi.project.BaseProjectDirectories.Companion.getBaseDirectories
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerDescriptor
@@ -35,6 +39,24 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         serverStarter: LspServerSupportProvider.LspServerStarter,
     ) {
         if (project.isDisposed) return
+        // Consume real-open intent even when current settings reject this callback.
+        // Looking up an existing service preserves the early startup eligibility gate.
+        val reopenRequest = project.getServiceIfCreated(BiomeLspLifecycleService::class.java)?.takeEditorOpen(file)
+        val settings = BiomeSettings.getInstance(project)
+        if (!settings.isEnabled() || !settings.fileSupported(file)) return
+        val lifecycle = project.service<BiomeLspLifecycleService>()
+        discoverFile(project, file, serverStarter, lifecycle.requestStamp(), reopenRequest = reopenRequest)
+    }
+
+    internal fun discoverFile(
+        project: Project,
+        file: VirtualFile,
+        serverStarter: LspServerSupportProvider.LspServerStarter,
+        requestStamp: Long,
+        reopenRequest: Long? = null,
+    ) {
+        if (project.isDisposed) return
+        val lifecycle = project.service<BiomeLspLifecycleService>()
         val settings = BiomeSettings.getInstance(project)
         if (!settings.isEnabled() || !settings.fileSupported(file)) return
         val biome = BiomePackage(project)
@@ -53,30 +75,73 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
             projectRootDir
         }
 
+        if (reopenRequest != null) lifecycle.resume(root, reopenRequest)
+        if (!lifecycle.permits(root, requestStamp) || lifecycle.isStopped(root)) return
+
         // Select the executable before SDK startup.
         val executable = biome.binaryPath(file) ?: return
-        serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, root, executable, configPath))
+        serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, root, executable, configPath, requestStamp))
+        if (!configPath.isNullOrEmpty()) return
+
+        // Public Restart skips later open files below the first collected root.
+        // Its callback holds one descriptor, so submit independent descendants to the manager.
+        val manager = LspServerManager.getInstance(project)
+        val scheduledRoots = manager.getServersForProvider(BiomeLspServerSupportProvider::class.java)
+            .flatMapTo(mutableSetOf(root)) { it.descriptor.roots.toList() }
+        val index = ProjectFileIndex.getInstance(project)
+        for (openFile in FileEditorManager.getInstance(project).openFiles) {
+            ProgressManager.checkCanceled()
+            if (!openFile.isInLocalFileSystem || !index.isInContent(openFile) ||
+                !VfsUtilCore.isAncestor(root, openFile, true)) continue
+            if (!settings.fileSupported(openFile)) continue
+            val nestedRoot = openFile.findNearestBiomeConfig(projectRootDir)?.parent ?: continue
+            if (nestedRoot in scheduledRoots || !VfsUtilCore.isAncestor(root, nestedRoot, true)) continue
+            if (lifecycle.isStopped(nestedRoot) || !lifecycle.permits(nestedRoot, requestStamp)) continue
+            val nestedExecutable = biome.binaryPath(openFile) ?: continue
+            scheduledRoots.add(nestedRoot)
+            manager.ensureServerStarted(BiomeLspServerSupportProvider::class.java,
+                BiomeLspServerDescriptor(project, nestedRoot, nestedExecutable, configPath, requestStamp))
+        }
     }
 
     override fun createLspServerWidgetItem(lspServer: LspServer,
-        currentFile: VirtualFile?) =
-        LspServerWidgetItem(lspServer, currentFile, BiomeIcons.BiomeIcon, BiomeConfigurable::class.java)
+        currentFile: VirtualFile?): LspServerWidgetItem =
+        BiomeLspServerWidgetItem(lspServer, currentFile)
 }
 
-private class BiomeLspServerDescriptor(
+internal class BiomeLspServerDescriptor(
     project: Project,
     root: VirtualFile,
     executable: String,
     private val configPath: String?,
+    @Volatile private var requestStamp: Long,
 ) : LspServerDescriptor(project, "Biome", root) {
     private val targetRun: BiomeTargetRun = BiomeTargetRunBuilder(project)
         .getBuilder(executable, root.path)
         .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
         .build()
 
+    internal fun refreshStartRequest(stamp: Long) {
+        requestStamp = stamp
+    }
+
     override fun isSupportedFile(file: VirtualFile): Boolean {
         return BiomeSettings.getInstance(project).fileSupported(file)
-            && roots.any { root -> file.toNioPath().startsWith(root.toNioPath()) }
+            && roots.any { root ->
+                if (!file.toNioPath().startsWith(root.toNioPath())) return@any false
+                if (!configPath.isNullOrEmpty()) return@any true
+                val nestedOwner = LspServerManager.getInstance(project)
+                    .getServersForProvider(BiomeLspServerSupportProvider::class.java)
+                    .any { server -> server.descriptor.roots.any { otherRoot ->
+                        otherRoot != root && otherRoot.toNioPath().startsWith(root.toNioPath()) &&
+                            file.toNioPath().startsWith(otherRoot.toNioPath())
+                    } }
+                if (nestedOwner) return@any false
+                val config = file.findNearestBiomeConfig(root)
+                // Rejections are cached by the IDE. Preserve an established root while its
+                // config is temporarily invalid, unless another independent root owns the file.
+                config == null || config.parent == root || BiomeConfig.loadFromFile(config)?.isRootConfig() != true
+            }
     }
 
     // IntelliJ falls back to the file extension as the language ID, which Biome doesn't
@@ -96,13 +161,16 @@ private class BiomeLspServerDescriptor(
     }
 
     override fun startServerProcess(): OSProcessHandler {
+        val lifecycle = project.service<BiomeLspLifecycleService>()
+        if (!lifecycle.permits(roots.single(), requestStamp)) throw ProcessCanceledException()
         val handler = targetRun.startProcess()
         var handedOff = false
         try {
             // Startup is queued before the SDK publishes the server in its write action.
             // Wait for that publication, then reject a process created after its server stopped.
             val active = ApplicationManager.getApplication().runReadAction(Computable {
-                !project.isDisposed && LspServerManager.getInstance(project)
+                !project.isDisposed && lifecycle.permits(roots.single(), requestStamp) &&
+                    LspServerManager.getInstance(project)
                     .getServersForProvider(BiomeLspServerSupportProvider::class.java)
                     .any { it.descriptor === this }
             })
