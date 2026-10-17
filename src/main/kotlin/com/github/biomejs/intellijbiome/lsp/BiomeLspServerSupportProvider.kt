@@ -11,6 +11,7 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.util.Computable
 import com.intellij.openapi.project.BaseProjectDirectories.Companion.getBaseDirectories
 import com.intellij.openapi.project.Project
@@ -53,6 +54,7 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         file: VirtualFile,
         serverStarter: LspServerSupportProvider.LspServerStarter,
         requestStamp: Long,
+        includeNestedRoots: Boolean = true,
         reopenRequest: Long? = null,
     ) {
         if (project.isDisposed) return
@@ -68,6 +70,10 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
             .getBaseDirectories()
             .find { VfsUtil.isUnder(file, setOf(it)) } ?: return
 
+        if (settings.usesConfigDiscovery()) {
+            project.service<BiomeConfigDiscoveryService>()
+        }
+
         val root = if (configPath.isNullOrEmpty()) {
             file.findNearestBiomeConfig(projectRootDir)?.parent ?: return
         } else {
@@ -81,7 +87,7 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         // Select the executable before SDK startup.
         val executable = biome.binaryPath(file) ?: return
         serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, root, executable, configPath, requestStamp))
-        if (!configPath.isNullOrEmpty()) return
+        if (!includeNestedRoots || !configPath.isNullOrEmpty()) return
 
         // Public Restart skips later open files below the first collected root.
         // Its callback holds one descriptor, so submit independent descendants to the manager.
@@ -112,18 +118,25 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
 internal class BiomeLspServerDescriptor(
     project: Project,
     root: VirtualFile,
-    executable: String,
+    private val executable: String,
     private val configPath: String?,
     @Volatile private var requestStamp: Long,
 ) : LspServerDescriptor(project, "Biome", root) {
-    private val targetRun: BiomeTargetRun = BiomeTargetRunBuilder(project)
-        .getBuilder(executable, root.path)
-        .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
-        .build()
+    // NodeTargetRun captures its construction-time progress indicator. A cancelled
+    // discovery read must not cancel a later launch, which has its own lifecycle fence.
+    private val targetRun: BiomeTargetRun = ProgressManager.getInstance().runProcess(Computable {
+        BiomeTargetRunBuilder(project)
+            .getBuilder(executable, root.path)
+            .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
+            .build()
+    }, EmptyProgressIndicator())
 
     internal fun refreshStartRequest(stamp: Long) {
         requestStamp = stamp
     }
+
+    internal fun copyForStart(stamp: Long): BiomeLspServerDescriptor =
+        BiomeLspServerDescriptor(project, roots.single(), executable, configPath, stamp)
 
     override fun isSupportedFile(file: VirtualFile): Boolean {
         return BiomeSettings.getInstance(project).fileSupported(file)
