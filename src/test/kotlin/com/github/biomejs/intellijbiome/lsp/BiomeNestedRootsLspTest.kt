@@ -91,6 +91,100 @@ class BiomeNestedRootsLspTest : BiomeLspFixtureTestCase() {
         verifyWidgetRestart(parentFile)
     }
 
+    fun testIndependentConfigCreationTransfersAlreadyOpenChildFromParent() {
+        val config = childFile.parent.toNioPath().resolve("biome.json")
+        Files.delete(config)
+        VfsUtil.markDirtyAndRefresh(false, true, true, childFile.parent)
+        myFixture.configureFromExistingVirtualFile(parentFile)
+        waitUntilFileOpenedByLspServer(project, parentFile, timeout = 20)
+        awaitFirstServerReadiness(parentFile)
+        myFixture.configureFromExistingVirtualFile(childFile)
+        waitUntilFileOpenedByLspServer(project, childFile, timeout = 20)
+        events.awaitDiagnostics(childFile)
+        val original = servers().single()
+        assertEquals(listOf(parentFile.parent), original.descriptor.roots.toList())
+        val editors = FileEditorManager.getInstance(project).getEditors(childFile).toList()
+        val document = FileDocumentManager.getInstance().getDocument(childFile)!!
+
+        Files.writeString(config, """{"root":true,"javascript":{"formatter":{"quoteStyle":"single"}}}""")
+        VfsUtil.markDirtyAndRefresh(false, true, true, childFile.parent)
+
+        PlatformTestUtil.waitWithEventsDispatching("Independent config did not acquire its already open document", {
+            servers().any { server -> server.descriptor.roots.toList() == listOf(childFile.parent) &&
+                opened.any { it.first === server && it.second == childFile } }
+        }, 20)
+        val child = servers().single { it.descriptor.roots.toList() == listOf(childFile.parent) }
+        events.awaitDiagnostics(childFile, child)
+        assertIndependentOwners(servers())
+        formatExistingDocumentAndAssert(childFile, "const message = 'child';\n")
+        assertEquals(editors, FileEditorManager.getInstance(project).getEditors(childFile).toList())
+        assertSame(document, FileDocumentManager.getInstance().getDocument(childFile))
+    }
+
+    fun testActiveChildRootFalseTransfersExistingEditorToParent() {
+        verifyChildAdoption("""{"root":false,"extends":"//","javascript":{"formatter":{"quoteStyle":"single"}}}""",
+            "const message = 'child';\n")
+    }
+
+    fun testActiveChildExtendsParentTransfersExistingEditorToParent() {
+        verifyChildAdoption("""{"extends":"//","javascript":{"formatter":{"quoteStyle":"single"}}}""",
+            "const message = 'child';\n")
+    }
+
+    fun testRemovingChildConfigTransfersExistingEditorToParent() {
+        verifyChildAdoption(null, "const message = \"child\";\n")
+    }
+
+    fun testMovingChildConfigTransfersBothAlreadyOpenDocuments() {
+        exercise(parentFirst = true)
+        val moved = myFixture.tempDirFixture.createFile("moved/child.js", "const message=\"moved\";\n")
+        myFixture.configureFromExistingVirtualFile(moved)
+        waitUntilFileOpenedByLspServer(project, moved, timeout = 20)
+        events.awaitDiagnostics(moved)
+        val oldServers = servers().toList()
+        val editorManager = FileEditorManager.getInstance(project)
+        val editors = listOf(childFile, moved).associateWith { editorManager.getEditors(it).toList() }
+        resetChildDocument()
+        Files.move(childFile.parent.toNioPath().resolve("biome.json"), moved.parent.toNioPath().resolve("biome.json"))
+        VfsUtil.markDirtyAndRefresh(false, true, true, parentFile.parent)
+
+        PlatformTestUtil.waitWithEventsDispatching("Moving a config did not transfer both existing documents", {
+            val current = servers()
+            current.size == 2 && current.none { it in oldServers } &&
+                current.flatMap { it.descriptor.roots.toList() }.toSet() == setOf(parentFile.parent, moved.parent) &&
+                current.any { server -> server.descriptor.roots.toList() == listOf(parentFile.parent) &&
+                    opened.any { it.first === server && it.second == childFile } } &&
+                current.any { server -> server.descriptor.roots.toList() == listOf(moved.parent) &&
+                    opened.any { it.first === server && it.second == moved } }
+        }, 20)
+        for (file in listOf(childFile, moved)) {
+            val owner = servers().single { it.descriptor.isSupportedFile(file) }
+            events.awaitDiagnostics(file, owner)
+        }
+        formatExistingDocumentAndAssert(childFile, "const message = \"child\";\n")
+        formatExistingDocumentAndAssert(moved, "const message = 'moved';\n")
+        assertEquals(editors, listOf(childFile, moved).associateWith { editorManager.getEditors(it).toList() })
+    }
+
+    fun testMalformedChildRepairRetainsExistingEditorAndOwners() {
+        exercise(parentFirst = true)
+        val originals = servers().toList()
+        val editors = FileEditorManager.getInstance(project).getEditors(childFile).toList()
+        val config = childFile.parent.toNioPath().resolve("biome.json")
+        val valid = Files.readString(config)
+        Files.writeString(config, "{broken")
+        VfsUtil.markDirtyAndRefresh(false, true, true, childFile.parent)
+        settleLifecycle()
+        assertEquals("A temporary parse error must retain the established owners", originals, servers().toList())
+        resetChildDocument()
+        Files.writeString(config, valid)
+        VfsUtil.markDirtyAndRefresh(false, true, true, childFile.parent)
+        settleLifecycle()
+        assertEquals(originals, servers().toList())
+        formatExistingDocumentAndAssert(childFile, "const message = 'child';\n")
+        assertEquals(editors, FileEditorManager.getInstance(project).getEditors(childFile).toList())
+    }
+
     fun testParentWidgetRestartDoesNotReviveDeliberatelyStoppedChild() {
         exercise(parentFirst = true)
         val originals = servers().toList()
@@ -136,6 +230,112 @@ class BiomeNestedRootsLspTest : BiomeLspFixtureTestCase() {
         assertIndependentOwners(servers())
         resetChildDocument()
         formatExistingDocumentAndAssert(childFile, "const message = 'child';\n")
+    }
+
+    fun testStoppingUnrelatedChildDoesNotDiscardQueuedConfigRecovery() {
+        val dispatcher = QueuedDiscoveryDispatcher()
+        val scope = CoroutineScope(SupervisorJob() + dispatcher)
+        com.intellij.openapi.util.Disposer.register(testRootDisposable) {
+            scope.cancel()
+            dispatcher.drainCancelledTasks()
+        }
+        project.replaceService(BiomeConfigDiscoveryService::class.java,
+            BiomeConfigDiscoveryService(project, scope), testRootDisposable)
+        exercise(parentFirst = true)
+        val child = servers().single { it.descriptor.roots.toList() == listOf(childFile.parent) }
+        val pending = myFixture.tempDirFixture.createFile("recovery/pending.js", "const message=\"pending\";\n")
+        myFixture.configureFromExistingVirtualFile(pending)
+        waitUntilFileOpenedByLspServer(project, pending, timeout = 20)
+        events.awaitDiagnostics(pending)
+        val editors = FileEditorManager.getInstance(project).getEditors(pending).toList()
+        val document = FileDocumentManager.getInstance().getDocument(pending)!!
+        Files.writeString(pending.parent.toNioPath().resolve("biome.json"),
+            """{"root":true,"javascript":{"formatter":{"quoteStyle":"single"}}}""")
+        VfsUtil.markDirtyAndRefresh(false, true, true, pending.parent)
+        dispatcher.runPendingReads(scope, expectEdt = true)
+
+        // Stop the other root while this config recovery is held before its EDT apply.
+        invokeWidgetLifecycleAction(child, parentFile, LanguageServicePopupSection.Other)
+        PlatformTestUtil.waitWithEventsDispatching("Unrelated Stop discarded the queued config recovery", {
+            dispatcher.runNextPendingTask()
+            val current = servers()
+            current.size == 2 &&
+                current.flatMap { it.descriptor.roots.toList() }.toSet() == setOf(parentFile.parent, pending.parent) &&
+                current.any { server -> server.descriptor.roots.toList() == listOf(pending.parent) &&
+                    opened.any { it.first === server && it.second == pending } }
+        }, 20)
+        val owner = servers().single { it.descriptor.roots.toList() == listOf(pending.parent) }
+        events.awaitDiagnostics(pending, owner)
+        formatExistingDocumentAndAssert(pending, "const message = 'pending';\n")
+        assertFalse("The deliberately stopped child must remain stopped",
+            servers().any { childFile.parent in it.descriptor.roots })
+        assertEquals(editors, FileEditorManager.getInstance(project).getEditors(pending).toList())
+        assertSame(document, FileDocumentManager.getInstance().getDocument(pending))
+    }
+
+    fun testMissingParentRetainsAlreadyOpenRootFalseChild() {
+        verifyUnavailableParentRetainsNonRootChild(removeConfig = true, rootFalse = true)
+    }
+
+    fun testMalformedParentRetainsAlreadyOpenRootFalseChild() {
+        verifyUnavailableParentRetainsNonRootChild(removeConfig = false, rootFalse = true)
+    }
+
+    fun testMissingParentRetainsAlreadyOpenExtendingChild() {
+        verifyUnavailableParentRetainsNonRootChild(removeConfig = true, rootFalse = false)
+    }
+
+    fun testMalformedParentRetainsAlreadyOpenExtendingChild() {
+        verifyUnavailableParentRetainsNonRootChild(removeConfig = false, rootFalse = false)
+    }
+
+    private fun verifyUnavailableParentRetainsNonRootChild(removeConfig: Boolean, rootFalse: Boolean) {
+        val dispatcher = QueuedDiscoveryDispatcher()
+        val scope = CoroutineScope(SupervisorJob() + dispatcher)
+        com.intellij.openapi.util.Disposer.register(testRootDisposable) {
+            scope.cancel()
+            dispatcher.drainCancelledTasks()
+        }
+        project.replaceService(BiomeConfigDiscoveryService::class.java,
+            BiomeConfigDiscoveryService(project, scope), testRootDisposable)
+        val childConfig = if (rootFalse) {
+            """{"root":false,"extends":"//","javascript":{"formatter":{"quoteStyle":"single"}}}"""
+        } else {
+            """{"extends":"//","javascript":{"formatter":{"quoteStyle":"single"}}}"""
+        }
+        Files.writeString(childFile.parent.toNioPath().resolve("biome.json"), childConfig)
+        VfsUtil.markDirtyAndRefresh(false, true, true, childFile.parent)
+        myFixture.configureFromExistingVirtualFile(parentFile)
+        waitUntilFileOpenedByLspServer(project, parentFile, timeout = 20)
+        awaitFirstServerReadiness(parentFile)
+        myFixture.configureFromExistingVirtualFile(childFile)
+        waitUntilFileOpenedByLspServer(project, childFile, timeout = 20)
+        events.awaitDiagnostics(childFile)
+        awaitQueuedDiscovery(dispatcher, scope)
+        val parent = servers().single()
+        assertEquals(listOf(parentFile.parent), parent.descriptor.roots.toList())
+        val editors = FileEditorManager.getInstance(project).getEditors(childFile).toList()
+        val document = FileDocumentManager.getInstance().getDocument(childFile)!!
+        val config = parentFile.parent.toNioPath().resolve("biome.json")
+        val validConfig = Files.readString(config)
+
+        if (removeConfig) Files.delete(config) else Files.writeString(config, "{broken")
+        VfsUtil.markDirtyAndRefresh(false, true, true, parentFile.parent)
+        awaitQueuedDiscovery(dispatcher, scope)
+        assertEquals("A non-root child cannot replace its missing or malformed established parent",
+            listOf(parent), servers().toList())
+        assertTrue(parent.descriptor.isSupportedFile(childFile))
+        assertEquals(editors, FileEditorManager.getInstance(project).getEditors(childFile).toList())
+        assertSame(document, FileDocumentManager.getInstance().getDocument(childFile))
+
+        Files.writeString(config, validConfig)
+        VfsUtil.markDirtyAndRefresh(false, true, true, parentFile.parent)
+        awaitQueuedDiscovery(dispatcher, scope)
+        assertEquals("Repair must retain the established parent server", listOf(parent), servers().toList())
+        resetChildDocument()
+        formatExistingDocumentAndAssert(childFile, "const message = 'child';\n")
+        assertEquals(editors, FileEditorManager.getInstance(project).getEditors(childFile).toList())
+        assertSame(document, FileDocumentManager.getInstance().getDocument(childFile))
     }
 
     fun testStoppingParentDoesNotDiscardQueuedChildWidgetRestart() {
@@ -203,6 +403,144 @@ class BiomeNestedRootsLspTest : BiomeLspFixtureTestCase() {
         resetChildDocument()
         formatExistingDocumentAndAssert(childFile, "const message = 'child';\n")
         assertEquals(parentEditors, FileEditorManager.getInstance(project).getEditors(parentFile).toList())
+    }
+
+    fun testMissingParentNonRootChildSurvivesUnrelatedOwnershipReplacement() {
+        val dispatcher = QueuedDiscoveryDispatcher()
+        val scope = CoroutineScope(SupervisorJob() + dispatcher)
+        com.intellij.openapi.util.Disposer.register(testRootDisposable) {
+            scope.cancel()
+            dispatcher.drainCancelledTasks()
+        }
+        project.replaceService(BiomeConfigDiscoveryService::class.java,
+            BiomeConfigDiscoveryService(project, scope), testRootDisposable)
+        Files.writeString(childFile.parent.toNioPath().resolve("biome.json"),
+            """{"root":false,"extends":"//","javascript":{"formatter":{"quoteStyle":"single"}}}""")
+        VfsUtil.markDirtyAndRefresh(false, true, true, childFile.parent)
+        myFixture.configureFromExistingVirtualFile(childFile)
+        waitUntilFileOpenedByLspServer(project, childFile, timeout = 20)
+        awaitFirstServerReadiness(childFile)
+        val pending = myFixture.tempDirFixture.createFile("recovery/pending.js", "const message=\"pending\";\n")
+        myFixture.configureFromExistingVirtualFile(pending)
+        waitUntilFileOpenedByLspServer(project, pending, timeout = 20)
+        events.awaitDiagnostics(pending)
+        awaitQueuedDiscovery(dispatcher, scope)
+        val original = servers().single()
+        assertEquals(listOf(parentFile.parent), original.descriptor.roots.toList())
+        val childEditors = FileEditorManager.getInstance(project).getEditors(childFile).toList()
+        val parentConfig = parentFile.parent.toNioPath().resolve("biome.json")
+        val validParentConfig = Files.readString(parentConfig)
+        Files.delete(parentConfig)
+        Files.writeString(pending.parent.toNioPath().resolve("biome.json"),
+            """{"root":true,"javascript":{"formatter":{"quoteStyle":"single"}}}""")
+        VfsUtil.markDirtyAndRefresh(false, true, true, parentFile.parent)
+        awaitQueuedDiscovery(dispatcher, scope)
+        PlatformTestUtil.waitWithEventsDispatching("Owner replacement dropped the missing parent of a non-root child", {
+            val current = servers()
+            current.size == 2 && original !in current &&
+                current.flatMap { it.descriptor.roots.toList() }.toSet() == setOf(parentFile.parent, pending.parent) &&
+                current.any { server -> server.descriptor.roots.toList() == listOf(parentFile.parent) &&
+                    opened.any { it.first === server && it.second == childFile } }
+        }, 20)
+        val retainedParent = servers().single { it.descriptor.roots.toList() == listOf(parentFile.parent) }
+        assertTrue(retainedParent.descriptor.isSupportedFile(childFile))
+        val pendingOwner = servers().single { it.descriptor.roots.toList() == listOf(pending.parent) }
+        events.awaitDiagnostics(pending, pendingOwner)
+        Files.writeString(parentConfig, validParentConfig)
+        VfsUtil.markDirtyAndRefresh(false, true, true, parentFile.parent)
+        awaitQueuedDiscovery(dispatcher, scope)
+        assertTrue(retainedParent in servers())
+        resetChildDocument()
+        formatExistingDocumentAndAssert(childFile, "const message = 'child';\n")
+        formatExistingDocumentAndAssert(pending, "const message = 'pending';\n")
+        assertEquals(childEditors, FileEditorManager.getInstance(project).getEditors(childFile).toList())
+    }
+
+    private fun awaitQueuedDiscovery(dispatcher: QueuedDiscoveryDispatcher, scope: CoroutineScope) {
+        PlatformTestUtil.waitWithEventsDispatching("Queued config recovery did not finish", {
+            dispatcher.runNextPendingTask()
+            scope.coroutineContext.job.children.none { it.isActive }
+        }, 20)
+    }
+
+    fun testQueuedConfigRecoveryPreservesUnrelatedChildReopenedAfterStop() {
+        val dispatcher = QueuedDiscoveryDispatcher()
+        val scope = CoroutineScope(SupervisorJob() + dispatcher)
+        com.intellij.openapi.util.Disposer.register(testRootDisposable) {
+            scope.cancel()
+            dispatcher.drainCancelledTasks()
+        }
+        project.replaceService(BiomeConfigDiscoveryService::class.java,
+            BiomeConfigDiscoveryService(project, scope), testRootDisposable)
+        exercise(parentFirst = true)
+        val child = servers().single { it.descriptor.roots.toList() == listOf(childFile.parent) }
+        val pending = myFixture.tempDirFixture.createFile("recovery/pending.js", "const message=\"pending\";\n")
+        myFixture.configureFromExistingVirtualFile(pending)
+        waitUntilFileOpenedByLspServer(project, pending, timeout = 20)
+        events.awaitDiagnostics(pending)
+        Files.writeString(pending.parent.toNioPath().resolve("biome.json"),
+            """{"root":true,"javascript":{"formatter":{"quoteStyle":"single"}}}""")
+        VfsUtil.markDirtyAndRefresh(false, true, true, pending.parent)
+        // Keep recovery's first task queued, so the real reopen may dispatch UI events
+        // without allowing the older config event to reach its apply stage yet.
+        invokeWidgetLifecycleAction(child, parentFile, LanguageServicePopupSection.Other)
+        PlatformTestUtil.waitWithEventsDispatching("Widget Stop did not remove the child before reopening", {
+            servers().none { it.descriptor.roots.toList() == listOf(childFile.parent) }
+        }, 20)
+        saveAndReopenChildEditor()
+        PlatformTestUtil.waitWithEventsDispatching("The child did not resume before queued config recovery", {
+            servers().any { server -> server !== child &&
+                server.descriptor.roots.toList() == listOf(childFile.parent) &&
+                opened.any { it.first === server && it.second == childFile } }
+        }, 20)
+        val reopened = servers().single { it.descriptor.roots.toList() == listOf(childFile.parent) }
+        events.awaitDiagnostics(childFile, reopened)
+        val childEditors = FileEditorManager.getInstance(project).getEditors(childFile).toList()
+
+        awaitQueuedDiscovery(dispatcher, scope)
+        PlatformTestUtil.waitWithEventsDispatching("Config recovery dropped the freshly resumed unrelated child", {
+            val current = servers()
+            current.size == 3 &&
+                current.flatMap { it.descriptor.roots.toList() }.toSet() ==
+                    setOf(parentFile.parent, childFile.parent, pending.parent) &&
+                current.any { server -> server.descriptor.roots.toList() == listOf(childFile.parent) &&
+                    opened.any { it.first === server && it.second == childFile } } &&
+                current.any { server -> server.descriptor.roots.toList() == listOf(pending.parent) &&
+                    opened.any { it.first === server && it.second == pending } }
+        }, 20)
+        val childOwner = servers().single { it.descriptor.roots.toList() == listOf(childFile.parent) }
+        events.awaitDiagnostics(childFile, childOwner)
+        val pendingOwner = servers().single { it.descriptor.roots.toList() == listOf(pending.parent) }
+        events.awaitDiagnostics(pending, pendingOwner)
+        resetChildDocument()
+        formatExistingDocumentAndAssert(childFile, "const message = 'child';\n")
+        formatExistingDocumentAndAssert(pending, "const message = 'pending';\n")
+        assertEquals(childEditors, FileEditorManager.getInstance(project).getEditors(childFile).toList())
+    }
+
+    private fun verifyChildAdoption(configText: String?, expected: String) {
+        exercise(parentFirst = true)
+        val originals = servers().toList()
+        val editors = FileEditorManager.getInstance(project).getEditors(childFile).toList()
+        val document = FileDocumentManager.getInstance().getDocument(childFile)!!
+        resetChildDocument()
+        val config = childFile.parent.toNioPath().resolve("biome.json")
+        if (configText == null) Files.delete(config) else Files.writeString(config, configText)
+        VfsUtil.markDirtyAndRefresh(false, true, true, childFile.parent)
+
+        PlatformTestUtil.waitWithEventsDispatching("The parent did not acquire the existing child document", {
+            val current = servers()
+            current.size == 1 && current.single() !in originals &&
+                current.single().descriptor.roots.toList() == listOf(parentFile.parent) &&
+                opened.any { it.first === current.single() && it.second == childFile }
+        }, 20)
+        val owner = servers().single()
+        events.awaitDiagnostics(childFile, owner)
+        assertEquals("2.5.15", owner.initializeResult?.serverInfo?.version)
+        assertTrue(owner.descriptor.isSupportedFile(childFile))
+        formatExistingDocumentAndAssert(childFile, expected)
+        assertEquals(editors, FileEditorManager.getInstance(project).getEditors(childFile).toList())
+        assertSame(document, FileDocumentManager.getInstance().getDocument(childFile))
     }
 
     private fun saveAndReopenChildEditor() {

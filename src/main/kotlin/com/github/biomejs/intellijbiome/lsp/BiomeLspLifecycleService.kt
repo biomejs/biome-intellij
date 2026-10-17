@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 internal class BiomeLspLifecycleService(project: Project, scope: CoroutineScope) {
     private var clock = 0L
     private var providerStop = 0L
+    private var startFence = 0L
     private val rootStops = mutableMapOf<String, Long>()
     private val stoppedRoots = mutableSetOf<String>()
     private val editorOpenRequests = mutableMapOf<String, Long>()
@@ -44,15 +45,37 @@ internal class BiomeLspLifecycleService(project: Project, scope: CoroutineScope)
     fun requestStamp(): Long = clock
 
     @Synchronized
+    fun isCurrent(request: Long): Boolean = request == clock
+
+    @Synchronized
     fun permits(root: VirtualFile, request: Long): Boolean =
-        request >= providerStop && request >= rootStops.getOrDefault(root.url, 0L)
+        request >= startFence && request >= providerStop && request >= rootStops.getOrDefault(root.url, 0L)
+
+    /** Owner replacement fences processes, but does not discard another pending config event. */
+    @Synchronized
+    fun allowsRecovery(request: Long): Boolean = request >= providerStop
+
+    @Synchronized
+    fun permitsRecovery(root: VirtualFile, request: Long): Boolean =
+        allowsRecovery(request) && request >= rootStops.getOrDefault(root.url, 0L) && root.url !in stoppedRoots
+
+    /** Retains a stopped former owner's veto even after the SDK removes its server. */
+    @Synchronized
+    fun permitsRecovery(file: VirtualFile, desired: VirtualFile, established: VirtualFile?, request: Long): Boolean {
+        if (!permitsRecovery(desired, request) ||
+            (established != null && !permitsRecovery(established, request))) return false
+        return rootStops.none { (root, stoppedAt) ->
+            stoppedAt > request && file.url.startsWith(root + "/") &&
+                (established == null || root == established.url || root.startsWith(established.url + "/"))
+        }
+    }
 
     @Synchronized
     fun isStopped(root: VirtualFile): Boolean = root.url in stoppedRoots
 
     @Synchronized
     fun resume(root: VirtualFile, request: Long): Boolean {
-        if (!permits(root, request)) return false
+        if (!allowsRecovery(request) || request < rootStops.getOrDefault(root.url, 0L)) return false
         if (stoppedRoots.remove(root.url)) ++clock
         return true
     }
@@ -76,5 +99,12 @@ internal class BiomeLspLifecycleService(project: Project, scope: CoroutineScope)
     fun restartAll() {
         providerStop = ++clock
         stoppedRoots.clear()
+    }
+
+    /** Invalidates pending starts without resuming roots the user deliberately stopped. */
+    @Synchronized
+    fun replaceOwners(): Long {
+        startFence = ++clock
+        return clock
     }
 }
