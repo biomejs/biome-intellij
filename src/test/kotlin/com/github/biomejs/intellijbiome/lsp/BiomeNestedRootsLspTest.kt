@@ -1,6 +1,7 @@
 package com.github.biomejs.intellijbiome.lsp
 
 import com.github.biomejs.intellijbiome.BiomePackage
+import com.github.biomejs.intellijbiome.actions.BiomeOpenConfigurationAction
 import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
@@ -74,6 +75,39 @@ class BiomeNestedRootsLspTest : BiomeLspFixtureTestCase() {
     fun testChildThenParentServiceFormattingUsesChildServer() { exercise(parentFirst = false) }
     fun testParentThenChildIdeFormattingUsesChildServer() { exercise(parentFirst = true, throughIde = true) }
     fun testChildThenParentIdeFormattingUsesChildServer() { exercise(parentFirst = false, throughIde = true) }
+
+    fun testWidgetConfigurationNavigationUsesItsOwnWorkspace() {
+        exercise(parentFirst = true)
+        val original = servers().toList()
+        val editors = FileEditorManager.getInstance(project)
+        val parentConfig = checkNotNull(parentFile.parent.findChild("biome.json"))
+        val childConfig = checkNotNull(childFile.parent.findChild("biome.json"))
+        for ((owner, current, expected) in listOf(
+            Triple(parentFile, childFile, parentConfig), Triple(childFile, parentFile, childConfig))) {
+            editors.closeFile(parentConfig)
+            editors.closeFile(childConfig)
+            val server = original.single { it.descriptor.roots.toList() == listOf(owner.parent) }
+            val widget = BiomeLspServerSupportProvider().createLspServerWidgetItem(server, current)
+            assertEquals(LanguageServicePopupSection.Other, widget.widgetActionLocation)
+            val row = widget.createWidgetAction()
+            val actions = row.templatePresentation.getClientProperty(ActionUtil.INLINE_ACTIONS)
+                ?: (row as ActionGroup).getChildren(null).toList()
+            val open = actions.filterIsInstance<BiomeOpenConfigurationAction>().single()
+            open.actionPerformed(AnActionEvent.createFromAnAction(open, null, ActionPlaces.STATUS_BAR_PLACE,
+                DataContext { key ->
+                    when (key) {
+                        CommonDataKeys.PROJECT.name -> project
+                        CommonDataKeys.VIRTUAL_FILE.name -> current
+                        else -> null
+                    }
+                }))
+            assertTrue("Widget row must open ${expected.path}", editors.isFileOpen(expected))
+            val unrelated = if (expected == parentConfig) childConfig else parentConfig
+            assertFalse("Widget row must not open the other workspace's config", editors.isFileOpen(unrelated))
+        }
+        assertEquals("Navigation must retain both server identities", original, servers().toList())
+        assertIndependentOwners(original)
+    }
 
     fun testParentFirstPublicRestartRestoresBothWorkspaces() {
         verifyPublicRestart(parentFirst = true)

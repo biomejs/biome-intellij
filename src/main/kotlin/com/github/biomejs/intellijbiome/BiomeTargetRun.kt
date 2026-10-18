@@ -126,7 +126,7 @@ internal fun supportsManualNodeTarget(executable: String, interpreter: NodeJsInt
     }
 
 /** Read the distribution without invoking the platform parser, which is disabled on other hosts. */
-private fun wslDistributionId(path: String): String? {
+internal fun wslDistributionId(path: String): String? {
     val normalized = path.replace('\\', '/')
     if (!normalized.startsWith("//")) return null
     val parts = normalized.removePrefix("//").split('/', limit = 3)
@@ -158,7 +158,7 @@ private fun localWindowsBatchPath(executable: String, workingDirectory: String?)
 }
 
 /** Resolve explicit paths against the command directory; bare names retain PATH lookup. */
-private fun nodeLauncherPath(
+internal fun nodeLauncherPath(
     executable: String,
     workingDirectory: String?,
     interpreter: NodeJsInterpreter?,
