@@ -220,7 +220,7 @@ class BiomeConfigurable(internal val project: Project) :
 
                 JsonSchemaService.Impl.get(project).reset()
                 biomeServerService.restartBiomeServer()
-                biomeServerService.notifyRestart()
+                biomeServerService.notifySettingsApplied()
             }
         }
     }
