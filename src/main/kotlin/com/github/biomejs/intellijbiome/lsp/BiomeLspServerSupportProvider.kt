@@ -134,6 +134,8 @@ internal class BiomeLspServerDescriptor(
     private val configPath: String?,
     @Volatile private var requestStamp: Long,
 ) : LspServerDescriptor(project, "Biome", root) {
+    override val lsp4jServerClass = BiomeLsp4jServer::class.java
+
     // NodeTargetRun captures its construction-time progress indicator. A cancelled
     // discovery read must not cancel a later launch, which has its own lifecycle fence.
     private val targetRun: BiomeTargetRun = ProgressManager.getInstance().runProcess(Computable {

@@ -1,0 +1,65 @@
+{
+  "entries": [
+    {
+      "section": "Server"
+    },
+    {
+      "pair": {
+        "name": "Version",
+        "value": [
+          {
+            "content": "2.5.15",
+            "elements": []
+          }
+        ]
+      }
+    },
+    {
+      "pair": {
+        "name": "Name",
+        "value": [
+          {
+            "content": "biome_lsp",
+            "elements": []
+          }
+        ]
+      }
+    },
+    {
+      "pair": {
+        "name": "CPU Architecture",
+        "value": [
+          {
+            "content": "aarch64",
+            "elements": []
+          }
+        ]
+      }
+    },
+    {
+      "pair": {
+        "name": "OS",
+        "value": [
+          {
+            "content": "macos",
+            "elements": []
+          }
+        ]
+      }
+    },
+    {
+      "section": "Workspace"
+    },
+    {
+      "pair": {
+        "name": "Open Documents",
+        "value": [
+          {
+            "content": "3",
+            "elements": []
+          }
+        ]
+      }
+    }
+  ]
+}
