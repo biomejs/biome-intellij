@@ -12,6 +12,7 @@ import com.intellij.notification.Notification
 import com.intellij.notification.Notifications
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.application.EDT
+import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.command.undo.UndoManager
 import com.intellij.openapi.editor.Editor
@@ -25,6 +26,7 @@ import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.LspServerState
 import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.testFramework.LoggedErrorProcessor
 import com.intellij.testFramework.replaceService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -207,6 +209,10 @@ class BiomeProjectViewActionsTest : BiomeLspFixtureTestCase() {
     fun testStopDuringSelectedFileOpenPreventsEditsAndRestart() {
         openFirstFile()
         val file = myFixture.addFileToProject("selected.js", "let value=1;console.log(value);\n").virtualFile
+        val server = LspServerManager.getInstance(project)
+            .getServersForProvider(BiomeLspServerSupportProvider::class.java).single()
+        val ignoredOpenMessage = "BiomeLspServerDescriptor@${project.name}(ShutdownNormally;0): " +
+            "Server is not in the Running state. Ignoring sendDidOpenRequest(${server.descriptor.getFileUri(file)})"
         var stopped = false
         project.messageBus.connect(testRootDisposable).subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER,
             object : FileEditorManagerListener {
@@ -217,11 +223,24 @@ class BiomeProjectViewActionsTest : BiomeLspFixtureTestCase() {
                     }
                 }
             })
-        invoke(BiomeApplySafeFixesAction(), file)
-        assertTrue("The selected file must reach the public editor-open boundary", stopped)
-        assertEquals("let value=1;console.log(value);\n", checkNotNull(FileDocumentManager.getInstance().getDocument(file)).text)
-        assertEquals("Biome unavailable", notifications.single().title)
-        assertNoRunningServer()
+        LoggedErrorProcessor.executeWith(object : LoggedErrorProcessor() {
+            override fun processError(category: String, message: String, details: Array<String>, t: Throwable?): Set<Action> {
+                // 261 can deliver a queued didOpen after this test's synchronous Stop.
+                // Retain that exact SDK log while checking the unchanged safety outcome.
+                if (ApplicationInfo.getInstance().build.baselineVersion == 261 && stopped &&
+                    category == "#com.intellij.platform.lsp.impl.LspServerImpl" && message == ignoredOpenMessage) {
+                    return setOf(Action.LOG)
+                }
+                return super.processError(category, message, details, t)
+            }
+        }).use {
+            invoke(BiomeApplySafeFixesAction(), file)
+            PlatformTestUtil.dispatchAllEventsInIdeEventQueue()
+            assertTrue("The selected file must reach the public editor-open boundary", stopped)
+            assertEquals("let value=1;console.log(value);\n", checkNotNull(FileDocumentManager.getInstance().getDocument(file)).text)
+            assertEquals("Biome unavailable", notifications.single().title)
+            assertNoRunningServer()
+        }
     }
 
     fun testSelectedFileRejectsStaleResponse() {

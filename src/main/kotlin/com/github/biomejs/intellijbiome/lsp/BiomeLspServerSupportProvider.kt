@@ -27,7 +27,10 @@ import com.intellij.platform.lsp.api.LspServerListener
 import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.LspServerNotificationsHandler
 import com.intellij.platform.lsp.api.LspServerSupportProvider
+import com.intellij.platform.lsp.api.customization.LspCompletionDisabled
+import com.intellij.platform.lsp.api.customization.LspCustomization
 import com.intellij.platform.lsp.api.customization.LspDiagnosticsSupport
+import com.intellij.platform.lsp.api.customization.LspGoToDefinitionDisabled
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import org.eclipse.lsp4j.ClientCapabilities
@@ -256,52 +259,54 @@ internal class BiomeLspServerDescriptor(
         }
     }
 
-    override val lspGoToDefinitionSupport = false
-    override val lspCompletionSupport = null
+    override val lspCustomization = object : LspCustomization() {
+        override val goToDefinitionCustomizer = LspGoToDefinitionDisabled
+        override val completionCustomizer = LspCompletionDisabled
 
-    override val lspFormattingSupport = object : LspFormattingSupport() {
-        override fun shouldFormatThisFileExclusivelyByServer(
-            file: VirtualFile,
-            ideCanFormatThisFileItself: Boolean,
-            serverExplicitlyWantsToFormatThisFile: Boolean,
-        ): Boolean {
-            val settings = BiomeSettings.getInstance(project)
-            return settings.enableLspFormat
-        }
-    }
-
-    override val lspDiagnosticsSupport = object : LspDiagnosticsSupport() {
-        override fun getMessage(diagnostic: Diagnostic): String {
-            val code = diagnostic.code?.let { it.left ?: it.right?.toString() }
-            return "Biome: ${super.getMessage(diagnostic)}" + (code?.let { " ($it)" } ?: "")
-        }
-
-        override fun getTooltip(diagnostic: Diagnostic): String {
-            val code = diagnostic.code?.let { it.left ?: it.right?.toString() }
-            val href = documentationLink(diagnostic)
-            val tooltip = if (code != null && href != null) {
-                HtmlChunk.fragment(
-                    HtmlChunk.text(StringUtil.convertLineSeparators("Biome: ${super.getMessage(diagnostic)} (")),
-                    HtmlChunk.link(href, StringUtil.convertLineSeparators(code)),
-                    HtmlChunk.text(")"),
-                ).toString()
-            } else {
-                StringUtil.escapeXmlEntities(getMessage(diagnostic))
+        override val formattingCustomizer = object : LspFormattingSupport() {
+            override fun shouldFormatThisFileExclusivelyByServer(
+                file: VirtualFile,
+                ideCanFormatThisFileItself: Boolean,
+                serverExplicitlyWantsToFormatThisFile: Boolean,
+            ): Boolean {
+                val settings = BiomeSettings.getInstance(project)
+                return settings.enableLspFormat
             }
-            return tooltip.replace("\r\n", "\n").replace('\r', '\n').replace("\n", "<br>").replace("<br/>", "<br>")
         }
 
-        private fun documentationLink(diagnostic: Diagnostic): String? {
-            val href = diagnostic.codeDescription?.href ?: return null
-            if (href.any { it.isISOControl() }) return null
-            val uri = try {
-                URI(href)
-            } catch (_: URISyntaxException) {
-                return null
+        override val diagnosticsCustomizer = object : LspDiagnosticsSupport() {
+            override fun getMessage(diagnostic: Diagnostic): String {
+                val code = diagnostic.code?.let { it.left ?: it.right?.toString() }
+                return "Biome: ${super.getMessage(diagnostic)}" + (code?.let { " ($it)" } ?: "")
             }
-            return href.takeIf {
-                (uri.scheme.equals("https", ignoreCase = true) || uri.scheme.equals("http", ignoreCase = true)) &&
-                    !uri.host.isNullOrEmpty() && uri.rawUserInfo == null
+
+            override fun getTooltip(diagnostic: Diagnostic): String {
+                val code = diagnostic.code?.let { it.left ?: it.right?.toString() }
+                val href = documentationLink(diagnostic)
+                val tooltip = if (code != null && href != null) {
+                    HtmlChunk.fragment(
+                        HtmlChunk.text(StringUtil.convertLineSeparators("Biome: ${super.getMessage(diagnostic)} (")),
+                        HtmlChunk.link(href, StringUtil.convertLineSeparators(code)),
+                        HtmlChunk.text(")"),
+                    ).toString()
+                } else {
+                    StringUtil.escapeXmlEntities(getMessage(diagnostic))
+                }
+                return tooltip.replace("\r\n", "\n").replace('\r', '\n').replace("\n", "<br>").replace("<br/>", "<br>")
+            }
+
+            private fun documentationLink(diagnostic: Diagnostic): String? {
+                val href = diagnostic.codeDescription?.href ?: return null
+                if (href.any { it.isISOControl() }) return null
+                val uri = try {
+                    URI(href)
+                } catch (_: URISyntaxException) {
+                    return null
+                }
+                return href.takeIf {
+                    (uri.scheme.equals("https", ignoreCase = true) || uri.scheme.equals("http", ignoreCase = true)) &&
+                        !uri.host.isNullOrEmpty() && uri.rawUserInfo == null
+                }
             }
         }
     }
