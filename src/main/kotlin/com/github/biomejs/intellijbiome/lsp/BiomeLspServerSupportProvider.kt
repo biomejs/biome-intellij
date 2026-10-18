@@ -142,6 +142,10 @@ internal class BiomeLspServerDescriptor(
             .build()
     }, EmptyProgressIndicator())
 
+    /** Captured launch selection; inspection must never rediscover or construct another command. */
+    internal val selectedExecutable: String get() = executable
+    internal val configurationPath: String? get() = configPath
+
     internal fun refreshStartRequest(stamp: Long) {
         requestStamp = stamp
     }

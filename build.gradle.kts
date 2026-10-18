@@ -137,7 +137,7 @@ intellijPlatformTesting {
       testFramework(TestFrameworkType.Platform, providers.gradleProperty("currentIdeTestFrameworkVersion").get())
       plugins {
         bundledPlugins(providers.gradleProperty("platformBundledPlugins").get().split(',') + listOf(
-          "intellij.testRunner.plugin", "intellij.structureView.plugin", "com.intellij.modules.json", "NodeJS",
+          "intellij.testRunner.plugin", "intellij.structureView.plugin", "NodeJS",
           "com.intellij.modules.jcef", "intellij.libraries.misc.plugin", "intellij.ssh.plugin",
           "intellij.bookmarks.plugin", "com.intellij.platform.images",
         ))

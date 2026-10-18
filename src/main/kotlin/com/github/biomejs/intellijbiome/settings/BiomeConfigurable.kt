@@ -2,6 +2,7 @@ package com.github.biomejs.intellijbiome.settings
 
 import com.github.biomejs.intellijbiome.BiomeBundle
 import com.github.biomejs.intellijbiome.BiomePackage
+import com.github.biomejs.intellijbiome.schema.BiomeSchemaAssociationService
 import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.intellij.ide.actionsOnSave.ActionsOnSaveConfigurable
 import com.intellij.lang.javascript.JavaScriptBundle
@@ -206,6 +207,7 @@ class BiomeConfigurable(internal val project: Project) :
                 // The default project (Welcome screen / "Settings for New Projects") has no language servers to restart.
                 if (project.isDefault) return@onApply
 
+                project.service<BiomeSchemaAssociationService>().invalidate()
                 biomeServerService.restartBiomeServer()
                 biomeServerService.notifyRestart()
             }

@@ -2,6 +2,7 @@ package com.github.biomejs.intellijbiome
 
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
+import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreter
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.util.NodePackage
 import com.intellij.javascript.nodejs.util.NodePackageDescriptor
@@ -13,11 +14,17 @@ class BiomePackage(private val project: Project) {
     private val packageName = "@biomejs/biome"
     private val packageDescription = NodePackageDescriptor(packageName)
 
-    fun getPackage(virtualFile: VirtualFile?): NodePackage? {
+    fun getPackage(virtualFile: VirtualFile?): NodePackage? =
+        getPackage(virtualFile) { NodeJsInterpreterManager.getInstance(project).interpreter }
+
+    internal fun getPackage(virtualFile: VirtualFile?, interpreter: NodeJsInterpreter?): NodePackage? =
+        getPackage(virtualFile) { interpreter }
+
+    private fun getPackage(virtualFile: VirtualFile?, interpreter: () -> NodeJsInterpreter?): NodePackage? {
         if (virtualFile != null) {
             val available = packageDescription.listAvailable(
                 project,
-                NodeJsInterpreterManager.getInstance(project).interpreter,
+                interpreter(),
                 virtualFile,
                 false,
                 true
@@ -30,7 +37,7 @@ class BiomePackage(private val project: Project) {
         var pkg = packageDescription.findUnambiguousDependencyPackage(project) ?: NodePackage.findDefaultPackage(
             project,
             packageName,
-            NodeJsInterpreterManager.getInstance(project).interpreter
+            interpreter()
         )
 
         return pkg

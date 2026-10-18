@@ -5,12 +5,16 @@ import com.github.biomejs.intellijbiome.ProcessCommandParameter
 import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationResolution
 import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationSettings
 import com.github.biomejs.intellijbiome.configuration.resolveBiomeConfigurationForTest
+import com.github.biomejs.intellijbiome.schema.BiomeSchemaAssociationService
+import com.github.biomejs.intellijbiome.schema.BiomeCustomConfigSchemaProvider
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterRef
 import com.intellij.javascript.nodejs.interpreter.local.NodeJsLocalInterpreter
 import com.intellij.javascript.nodejs.interpreter.wsl.WslNodeInterpreter
+import com.intellij.openapi.components.service
+import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.roots.ModuleRootModificationUtil
@@ -180,6 +184,38 @@ class BiomeWindowsWslLauncherTest : BiomeWindowsLauncherTestCase() {
         val found = result as BiomeConfigurationResolution.Found
         assertEquals(source.parent, found.base)
         assertEquals("""{"marker":"host mount"}""", VfsUtilCore.loadText(found.file))
+    }
+
+    fun testCustomSchemaUsesTheSelectedWslPackageWithoutStartingAProcess() {
+        val pkg = root.resolve("node_modules/@biomejs/biome")
+        Files.createDirectories(pkg.resolve("bin"))
+        Files.writeString(pkg.resolve("package.json"),
+            """{"name":"@biomejs/biome","version":"2.5.15","bin":{"biome":"bin/biome"}}""")
+        Files.writeString(pkg.resolve("bin/biome"), "#!/usr/bin/env node\n")
+        Files.writeString(pkg.resolve("configuration_schema.json"),
+            """{"type":"object","properties":{"wslOnly":{"type":"boolean"}}}""")
+        val config = checkNotNull(VfsUtil.findFile(Files.writeString(root.resolve("custom.jsonc"), "{}"), true))
+        ModuleRootModificationUtil.addContentRoot(myFixture.module, config.parent.path)
+        val settings = BiomeSettings.getInstance(project)
+        settings.configurationMode = ConfigurationMode.MANUAL
+        settings.supportedExtensions = mutableListOf(".js")
+        settings.configPath = "$linuxRoot/custom.jsonc"
+        val association = project.service<BiomeSchemaAssociationService>()
+        for (alias in listOf("wsl$", "wsl.localhost")) {
+            settings.executablePath = "//$alias/$distribution$linuxRoot/node_modules/@biomejs/biome/bin/biome"
+            settings.configPath = "//$alias/$distribution$linuxRoot/custom.jsonc"
+            val otherAlias = if (alias == "wsl$") "wsl.localhost" else "wsl$"
+            val opened = checkNotNull(VfsUtil.findFile(Path.of("//$otherAlias/$distribution$linuxRoot/custom.jsonc"), true))
+            com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess.allowRootAccess(testRootDisposable, opened.parent.path)
+            myFixture.configureFromExistingVirtualFile(opened)
+            val job = association.invalidate()
+            PlatformTestUtil.waitWithEventsDispatching("WSL package schema was not resolved", { job.isCompleted }, 20)
+            val schema = BiomeCustomConfigSchemaProvider().getSchemaFile(myFixture.file)
+            assertNotNull("Selected WSL npm package must supply its own schema: $alias", schema)
+            assertTrue(VfsUtilCore.loadText(schema!!).contains("wslOnly"))
+        }
+        assertTrue(com.intellij.platform.lsp.api.LspServerManager.getInstance(project)
+            .getServersForProvider(com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider::class.java).isEmpty())
     }
 
     private fun makeExecutable(path: Path) {
