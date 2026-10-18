@@ -6,7 +6,7 @@ import com.github.biomejs.intellijbiome.lsp.BiomeLspLifecycleService
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerDescriptor
 import com.github.biomejs.intellijbiome.lsp.BiomeTroubleshootingText
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
-import com.intellij.ide.plugins.PluginManagerCore
+import com.intellij.ide.plugins.cl.PluginAwareClassLoader
 import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
@@ -14,7 +14,6 @@ import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.ControlFlowException
-import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.LspServer
@@ -138,7 +137,9 @@ internal class BiomeTroubleshootingService internal constructor(
         val text = BiomeTroubleshootingText()
         val application = ApplicationInfo.getInstance()
         text.pair("IDE", application.fullApplicationName + " (" + application.build.asString() + ")")
-        text.pair("Plugin", PluginManagerCore.getPlugin(PluginId.getId("com.github.biomejs.intellijbiome"))?.version ?: "unknown")
+        val pluginVersion = (BiomeTroubleshootingService::class.java.classLoader as? PluginAwareClassLoader)
+            ?.pluginDescriptor?.version
+        text.pair("Plugin", pluginVersion ?: "unknown")
         text.pair("OS", System.getProperty("os.name") + " " + System.getProperty("os.arch"))
         val settings = BiomeSettings.getInstance(project)
         text.pair("Integration", settings.configurationMode.name)
