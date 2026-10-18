@@ -7,6 +7,7 @@ import com.intellij.lang.javascript.modules.TestNpmPackageInstaller
 import com.intellij.openapi.command.undo.UndoManager
 import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.impl.text.TextEditorProvider
+import com.intellij.openapi.util.Disposer
 import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.LspServerState
 import com.intellij.testFramework.PlatformTestUtil
@@ -18,6 +19,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 @TestNpmPackage("@biomejs/biome@2.5.15")
 class BiomeOnTypeLspTest : BiomeLspFixtureTestCase() {
     private lateinit var scope: CoroutineScope
+    private val replacementDisposable = Disposer.newDisposable("Biome on-type request observer")
     private val requests = ConcurrentLinkedQueue<DocumentOnTypeFormattingParams>()
 
     override fun setUp() {
@@ -34,7 +36,7 @@ class BiomeOnTypeLspTest : BiomeLspFixtureTestCase() {
             }) { server, params ->
                 requests.add(params)
                 server.sendRequest { it.textDocumentService.onTypeFormatting(params) }
-            }, testRootDisposable)
+            }, replacementDisposable)
         BiomeSettings.getInstance(project).formatOnType = true
     }
 
@@ -42,7 +44,10 @@ class BiomeOnTypeLspTest : BiomeLspFixtureTestCase() {
         try {
             scope.cancel()
             scope.coroutineContext[Job]!!.children.toList().forEach(::await)
-        } finally { super.tearDown() }
+        } finally {
+            try { Disposer.dispose(replacementDisposable) }
+            finally { super.tearDown() }
+        }
     }
 
     fun testReleasedJavaScriptClosingBraceFormatsRegionAndSupportsUndo() {
