@@ -131,10 +131,12 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
 internal class BiomeLspServerDescriptor(
     project: Project,
     root: VirtualFile,
-    executable: String,
+    private val executable: String,
     private val configPath: String?,
     @Volatile private var requestStamp: Long,
 ) : LspServerDescriptor(project, "Biome", root) {
+    override val lsp4jServerClass = BiomeLsp4jServer::class.java
+
     // NodeTargetRun captures its construction-time progress indicator. A cancelled
     // discovery read must not cancel a later launch, which has its own lifecycle fence.
     private val targetRun: BiomeTargetRun = ProgressManager.getInstance().runProcess(Computable {
@@ -143,6 +145,10 @@ internal class BiomeLspServerDescriptor(
             .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
             .build()
     }, EmptyProgressIndicator())
+
+    /** Captured launch selection; inspection must never rediscover or construct another command. */
+    internal val selectedExecutable: String get() = executable
+    internal val configurationPath: String? get() = configPath
 
     internal fun refreshStartRequest(stamp: Long) {
         requestStamp = stamp
