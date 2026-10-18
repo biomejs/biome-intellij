@@ -107,6 +107,94 @@ class BiomeOnTypeLspTest : BiomeLspFixtureTestCase() {
         assertEquals(caret, myFixture.editor.caretModel.offset)
     }
 
+    fun testReplacingSelectionDoesNotRequestOnTypeFormatting() {
+        open("selection.js", "const values=[1,2<caret>X;\nconst sibling=  2;\n")
+        val editor = myFixture.editor
+        val selectedOffset = editor.caretModel.offset
+        editor.selectionModel.setSelection(selectedOffset, selectedOffset + 1)
+        assertEquals("X", editor.selectionModel.selectedText)
+        val callbacks = mutableListOf<String>()
+        fun record(phase: String, character: Char, target: com.intellij.openapi.editor.Editor) {
+            if (target === editor && character == ']') {
+                callbacks += "$phase:${target.selectionModel.selectedText ?: "<none>"}"
+            }
+        }
+        com.intellij.codeInsight.editorActions.TypedHandlerDelegate.EP_NAME.point.registerExtension(
+            object : com.intellij.codeInsight.editorActions.TypedHandlerDelegate() {
+                override fun newTypingStarted(c: Char, editor: com.intellij.openapi.editor.Editor,
+                    context: com.intellij.openapi.actionSystem.DataContext) {
+                    record("newTypingStarted", c, editor)
+                }
+
+                override fun beforeSelectionRemoved(c: Char, project: com.intellij.openapi.project.Project,
+                    editor: com.intellij.openapi.editor.Editor, file: com.intellij.psi.PsiFile): Result {
+                    record("beforeSelectionRemoved", c, editor)
+                    return Result.CONTINUE
+                }
+
+                override fun beforeCharTyped(c: Char, project: com.intellij.openapi.project.Project,
+                    editor: com.intellij.openapi.editor.Editor, file: com.intellij.psi.PsiFile,
+                    fileType: com.intellij.openapi.fileTypes.FileType): Result {
+                    record("beforeCharTyped", c, editor)
+                    return Result.CONTINUE
+                }
+
+                override fun charTyped(c: Char, project: com.intellij.openapi.project.Project,
+                    editor: com.intellij.openapi.editor.Editor, file: com.intellij.psi.PsiFile): Result {
+                    record("charTyped", c, editor)
+                    return Result.CONTINUE
+                }
+            }, com.intellij.openapi.extensions.LoadingOrder.FIRST, testRootDisposable)
+        type(']')
+        assertEquals(listOf(
+            "newTypingStarted:X", "beforeSelectionRemoved:X",
+            "beforeCharTyped:<none>", "charTyped:<none>",
+        ), callbacks)
+        assertTrue("Selection replacement must not request formatting. Callbacks=$callbacks; " +
+            "requests=${requests.map { it.ch }}; actual=${editor.document.text}", requests.isEmpty())
+        assertEquals("const values=[1,2];\nconst sibling=  2;\n", editor.document.text)
+        assertEquals(selectedOffset + 1, editor.caretModel.offset)
+    }
+
+    fun testTypingAfterSelectionReplacementStillFormats() {
+        open("selection.js", "const values=[1,2<caret>X;\nconst next=call(1,2;\n")
+        val editor = myFixture.editor
+        val selectedOffset = editor.caretModel.offset
+        editor.selectionModel.setSelection(selectedOffset, selectedOffset + 1)
+        myFixture.type(']')
+        assertEquals("const values=[1,2];\nconst next=call(1,2;\n", editor.document.text)
+        assertTrue(requests.isEmpty())
+        // Start the next event before draining the selection marker's deferred cleanup.
+        editor.caretModel.moveToOffset(editor.document.text.lastIndexOf(';'))
+        type(')')
+        assertEquals(listOf(")"), requests.map { it.ch })
+        assertEquals("const values=[1,2];\nconst next = call(1, 2);\n", editor.document.text)
+    }
+
+    fun testConsumedSelectionDoesNotSuppressNextTyping() {
+        open("selection.js", "const values=[1,2<caret>];\nconst next=call(1,2;\n")
+        val editor = myFixture.editor
+        val before = editor.document.text
+        val selectedOffset = editor.caretModel.offset
+        editor.selectionModel.setSelection(selectedOffset, selectedOffset + 1)
+        val consumingDelegate = Disposer.newDisposable("Selected typing consumer")
+        try {
+            com.intellij.codeInsight.editorActions.TypedHandlerDelegate.EP_NAME.point.registerExtension(
+                object : com.intellij.codeInsight.editorActions.TypedHandlerDelegate() {
+                    override fun beforeSelectionRemoved(c: Char, project: com.intellij.openapi.project.Project,
+                        editor: com.intellij.openapi.editor.Editor, file: com.intellij.psi.PsiFile) = Result.STOP
+                }, com.intellij.openapi.extensions.LoadingOrder.FIRST, consumingDelegate)
+            myFixture.type(']')
+            assertEquals(before, editor.document.text)
+            assertEquals("]", editor.selectionModel.selectedText)
+        } finally { Disposer.dispose(consumingDelegate) }
+        editor.selectionModel.removeSelection()
+        editor.caretModel.moveToOffset(editor.document.text.lastIndexOf(';'))
+        type(')')
+        assertEquals(listOf(")"), requests.map { it.ch })
+        assertEquals("const values=[1,2];\nconst next = call(1, 2);\n", editor.document.text)
+    }
+
     fun testReleasedJsonClosingBracketFormatsArrayOnly() {
         open("index.json", "{\"values\":[1,2<caret>,\"sibling\" :  2}")
         type(']')
