@@ -3,8 +3,8 @@ package com.github.biomejs.intellijbiome.launcher
 import com.github.biomejs.intellijbiome.BiomeTargetRun
 import com.github.biomejs.intellijbiome.ProcessCommandParameter
 import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationResolution
-import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationResolver
 import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationSettings
+import com.github.biomejs.intellijbiome.configuration.resolveBiomeConfigurationForTest
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
@@ -146,7 +146,7 @@ class BiomeWindowsWslLauncherTest : BiomeWindowsLauncherTestCase() {
                 }
                 val snapshot = BiomeConfigurationSettings.capture(project)
                 assertTrue("The resolver snapshot must retain the selected WSL interpreter", snapshot.interpreter is WslNodeInterpreter)
-                val result = BiomeConfigurationResolver.resolve(project, source, snapshot)
+                val result = resolveBiomeConfigurationForTest(project, source, snapshot)
                 assertTrue("Expected navigation for $executable / $path, got $result", result is BiomeConfigurationResolution.Found)
                 val found = result as BiomeConfigurationResolution.Found
                 assertEquals(source.parent, found.base)
@@ -156,7 +156,7 @@ class BiomeWindowsWslLauncherTest : BiomeWindowsLauncherTestCase() {
         val foreign = BiomeConfigurationSettings(ConfigurationMode.MANUAL, "custom config.jsonc",
             "//wsl.localhost/BiomeUnavailableForeignDistribution/usr/bin/biome", interpreter)
         assertEquals(BiomeConfigurationResolution.Unavailable(BiomeConfigurationResolution.Reason.UNRESOLVED_TARGET),
-            BiomeConfigurationResolver.resolve(project, source, foreign))
+            resolveBiomeConfigurationForTest(project, source, foreign))
     }
 
     fun testConfigurationNavigationMapsMountedHostFileWithoutAProcess() {
@@ -169,7 +169,7 @@ class BiomeWindowsWslLauncherTest : BiomeWindowsLauncherTestCase() {
             configPath = targetPath
             executablePath = "//wsl.localhost/$distribution$wslNode"
         }
-        val result = BiomeConfigurationResolver.resolve(project, source, BiomeConfigurationSettings.capture(project))
+        val result = resolveBiomeConfigurationForTest(project, source, BiomeConfigurationSettings.capture(project))
         assertTrue("Mounted path must navigate through the selected distribution: $result", result is BiomeConfigurationResolution.Found)
         val found = result as BiomeConfigurationResolution.Found
         assertEquals(source.parent, found.base)

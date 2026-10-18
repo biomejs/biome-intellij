@@ -7,6 +7,8 @@ import com.github.biomejs.intellijbiome.wslDistributionId
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreter
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.interpreter.wsl.WslNodeInterpreter
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.BaseProjectDirectories.Companion.getBaseDirectories
 import com.intellij.openapi.project.Project
@@ -38,25 +40,60 @@ internal sealed interface BiomeConfigurationResolution {
     enum class Reason { DISABLED, NO_PROJECT_BASE, INVALID_SELECTION, MISSING_CONFIGURATION, UNRESOLVED_TARGET }
 }
 
+internal data class BiomeConfigurationContext(
+    val selectedFile: VirtualFile?,
+    val selectedPath: String?,
+    val bases: List<VirtualFile>,
+    val owningBase: VirtualFile?,
+    val unavailableReason: BiomeConfigurationResolution.Reason? = null,
+)
+
 internal object BiomeConfigurationResolver {
-    /** Resolves the editable source configuration, independently of language-server workspace ownership. */
+    /** Captures project ownership under a short read action, without inspecting configuration or launcher files. */
+    fun captureContext(project: Project, selectedFile: VirtualFile?): BiomeConfigurationContext {
+        ApplicationManager.getApplication().assertReadAccessAllowed()
+        val reason = when {
+            project.isDisposed || project.isDefault -> BiomeConfigurationResolution.Reason.NO_PROJECT_BASE
+            selectedFile != null && !selectedFile.isValid -> BiomeConfigurationResolution.Reason.INVALID_SELECTION
+            else -> null
+        }
+        if (reason != null) return BiomeConfigurationContext(selectedFile, null, emptyList(), null, reason)
+        val bases = project.getBaseDirectories().filter { it.isValid && it.isDirectory }
+        val owningBase = selectedFile?.let { file ->
+            bases.filter { VfsUtilCore.isAncestor(it, file, false) }.maxByOrNull { it.path.length }
+        }
+        return BiomeConfigurationContext(selectedFile, selectedFile?.path, bases, owningBase)
+    }
+
+    /** Resolves source configuration on a background thread, outside application read locks. */
     fun resolve(
         project: Project,
         selectedFile: VirtualFile?,
         settings: BiomeConfigurationSettings,
     ): BiomeConfigurationResolution {
-        if (settings.mode == ConfigurationMode.DISABLED) return unavailable(BiomeConfigurationResolution.Reason.DISABLED)
-        if (project.isDisposed || project.isDefault) return unavailable(BiomeConfigurationResolution.Reason.NO_PROJECT_BASE)
-        if (selectedFile != null && !selectedFile.isValid) return unavailable(BiomeConfigurationResolution.Reason.INVALID_SELECTION)
-        val bases = project.getBaseDirectories().filter { it.isValid && it.isDirectory }
-        val owningBase = selectedFile?.let { file ->
-            bases.filter { VfsUtilCore.isAncestor(it, file, false) }.maxByOrNull { it.path.length }
+        assertBackgroundResolution()
+        val context = ReadAction.compute<BiomeConfigurationContext, RuntimeException> {
+            captureContext(project, selectedFile)
         }
+        return resolve(context, settings)
+    }
+
+    /** Resolves a captured project context without holding a model lock across VFS or launcher I/O. */
+    fun resolve(
+        context: BiomeConfigurationContext,
+        settings: BiomeConfigurationSettings,
+    ): BiomeConfigurationResolution {
+        assertBackgroundResolution()
+        if (settings.mode == ConfigurationMode.DISABLED) return unavailable(BiomeConfigurationResolution.Reason.DISABLED)
+        context.unavailableReason?.let { return unavailable(it) }
+        val selectedFile = context.selectedFile
+        if (selectedFile != null && !selectedFile.isValid) return unavailable(BiomeConfigurationResolution.Reason.INVALID_SELECTION)
+        val owningBase = context.owningBase
         val manualPath = settings.configPath.takeIf { settings.mode == ConfigurationMode.MANUAL && it.isNotBlank() }
         if (selectedFile != null && owningBase == null && manualPath == null) {
             return unavailable(BiomeConfigurationResolution.Reason.NO_PROJECT_BASE)
         }
-        val candidates = owningBase?.let { listOf(it) } ?: bases
+        val candidates = (owningBase?.let { listOf(it) } ?: context.bases).filter { it.isValid }
         if (candidates.isEmpty()) return unavailable(BiomeConfigurationResolution.Reason.NO_PROJECT_BASE)
         val found = mutableListOf<BiomeConfigurationResolution.Found>()
         var unresolvedTarget = false
@@ -139,4 +176,10 @@ internal object BiomeConfigurationResolver {
     }
 
     private fun unavailable(reason: BiomeConfigurationResolution.Reason) = BiomeConfigurationResolution.Unavailable(reason)
+
+    private fun assertBackgroundResolution() {
+        val application = ApplicationManager.getApplication()
+        application.assertIsNonDispatchThread()
+        check(!application.isReadAccessAllowed) { "Configuration filesystem resolution must run outside application read locks" }
+    }
 }

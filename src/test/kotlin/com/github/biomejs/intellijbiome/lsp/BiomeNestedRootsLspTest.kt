@@ -101,7 +101,9 @@ class BiomeNestedRootsLspTest : BiomeLspFixtureTestCase() {
                         else -> null
                     }
                 }))
-            assertTrue("Widget row must open ${expected.path}", editors.isFileOpen(expected))
+            PlatformTestUtil.waitWithEventsDispatching("Widget row must open ${expected.path}", {
+                editors.isFileOpen(expected)
+            }, 10)
             val unrelated = if (expected == parentConfig) childConfig else parentConfig
             assertFalse("Widget row must not open the other workspace's config", editors.isFileOpen(unrelated))
         }
