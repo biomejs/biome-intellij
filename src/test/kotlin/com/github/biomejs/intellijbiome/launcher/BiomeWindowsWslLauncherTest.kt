@@ -16,6 +16,7 @@ import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VfsUtilCore
+import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
@@ -35,6 +36,8 @@ class BiomeWindowsWslLauncherTest : BiomeWindowsLauncherTestCase() {
         root = Files.createTempDirectory(Path.of("\\\\wsl.localhost\\$distribution\\tmp"), "biome launcher ")
         linuxRoot = "/tmp/${root.fileName}"
         Disposer.register(testRootDisposable) { FileUtil.delete(root.toFile()) }
+        VfsRootAccess.allowRootAccess(testRootDisposable,
+            "//wsl.localhost/$distribution$linuxRoot", "//wsl$/$distribution$linuxRoot")
         NodeJsInterpreterManager.getInstance(project).setInterpreterRef(
             NodeJsInterpreterRef.create(WslNodeInterpreter(distribution, wslNode)))
     }
@@ -165,6 +168,9 @@ class BiomeWindowsWslLauncherTest : BiomeWindowsLauncherTestCase() {
         val host = config.path.replace('\\', '/')
         assertTrue("Native Windows fixture must have a drive", host.length > 2 && host[1] == ':')
         val targetPath = "/mnt/${host[0].lowercaseChar()}${host.substring(2)}"
+        val targetDirectory = targetPath.substringBeforeLast('/')
+        VfsRootAccess.allowRootAccess(testRootDisposable,
+            "//wsl.localhost/$distribution$targetDirectory", "//wsl$/$distribution$targetDirectory")
         BiomeSettings.getInstance(project).apply {
             configPath = targetPath
             executablePath = "//wsl.localhost/$distribution$wslNode"
