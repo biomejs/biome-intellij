@@ -6,6 +6,7 @@ import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationContext
 import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationResolution
 import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationResolver
 import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationSettings
+import com.github.biomejs.intellijbiome.lsp.BiomeLspDocumentListener
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerDescriptor
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
@@ -30,9 +31,7 @@ import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
-import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerManager
-import com.intellij.platform.lsp.api.LspServerManagerListener
 import com.intellij.platform.lsp.api.LspServerState
 import com.jetbrains.jsonSchema.ide.JsonSchemaService
 import kotlinx.coroutines.CoroutineScope
@@ -75,11 +74,10 @@ internal class BiomeSchemaAssociationService(private val project: Project, priva
             override fun rootsChanged(event: ModuleRootEvent) { invalidate() }
         })
         NodeJsInterpreterManager.getInstance(project).addChangeListener({ invalidate() }, this)
-        LspServerManager.getInstance(project).addLspServerManagerListener(object : LspServerManagerListener {
-            override fun serverStateChanged(lspServer: LspServer) {
-                if (lspServer.providerClass == BiomeLspServerSupportProvider::class.java) invalidate()
-            }
-        }, this)
+        project.messageBus.connect(scope).subscribe(BiomeLspDocumentListener.TOPIC, object : BiomeLspDocumentListener {
+            override fun serverInitialized(descriptor: BiomeLspServerDescriptor) { invalidate() }
+            override fun serverStopped(descriptor: BiomeLspServerDescriptor) { invalidate() }
+        })
     }
 
     fun schemaFor(config: VirtualFile): VirtualFile? = ready[configurationUrl(config)]?.let {

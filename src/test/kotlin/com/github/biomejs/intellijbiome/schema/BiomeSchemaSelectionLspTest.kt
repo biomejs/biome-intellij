@@ -5,6 +5,7 @@ import com.github.biomejs.intellijbiome.lsp.BiomeLspFixtureTestCase
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerDescriptor
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
 import com.github.biomejs.intellijbiome.lsp.configureLocalNodeForRuntimeTests
+import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.intellij.lang.javascript.modules.TestNpmPackage
@@ -47,12 +48,27 @@ class BiomeSchemaSelectionLspTest : BiomeLspFixtureTestCase() {
                 it.state == LspServerState.Running && it.initializeResult?.serverInfo?.version == "2.5.15"
             }
         }
-        val server = manager.getServersForProvider(BiomeLspServerSupportProvider::class.java).single()
+        var server = manager.getServersForProvider(BiomeLspServerSupportProvider::class.java).single()
         val descriptor = server.descriptor as BiomeLspServerDescriptor
         assertEquals(selectedExecutable, descriptor.selectedExecutable)
         assertEquals(config.path, descriptor.configurationPath)
         assertEquals(listOf(root), descriptor.roots.toList())
         waitUntil("Running descriptor must select the nested package schema") { associations.schemaFor(config)?.canonicalPath == nestedSchema.canonicalPath }
+
+        val originalServer = server
+        project.service<BiomeServerService>().stopBiomeServer()
+        waitUntil("Stopped selection must no longer supply the schema") {
+            server.state != LspServerState.Running && associations.schemaFor(config) == null
+        }
+        assertTrue(manager.getServersForProvider(BiomeLspServerSupportProvider::class.java).none { it.state == LspServerState.Running })
+        project.service<BiomeServerService>().restartBiomeServer()
+        waitUntil("Replacement initialization must restore the selected package schema") {
+            manager.getServersForProvider(BiomeLspServerSupportProvider::class.java).any {
+                it !== originalServer && it.state == LspServerState.Running && it.initializeResult?.serverInfo?.version == "2.5.15"
+            } && associations.schemaFor(config)?.canonicalPath == nestedSchema.canonicalPath
+        }
+        server = manager.getServersForProvider(BiomeLspServerSupportProvider::class.java).single()
+        assertEquals(selectedExecutable, (server.descriptor as BiomeLspServerDescriptor).selectedExecutable)
 
         val metadata = nestedSchema.parent.findChild("package.json")!!
         val original = VfsUtil.loadText(metadata)

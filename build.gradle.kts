@@ -106,6 +106,7 @@ intellijPlatform {
     failureLevel = listOf(
       VerifyPluginTask.FailureLevel.COMPATIBILITY_PROBLEMS,
       VerifyPluginTask.FailureLevel.INVALID_PLUGIN,
+      VerifyPluginTask.FailureLevel.INTERNAL_API_USAGES,
       VerifyPluginTask.FailureLevel.MISSING_DEPENDENCIES,
       VerifyPluginTask.FailureLevel.PLUGIN_STRUCTURE_WARNINGS,
     )

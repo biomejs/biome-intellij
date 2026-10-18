@@ -36,6 +36,7 @@ import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.Diagnostic
+import org.eclipse.lsp4j.InitializeResult
 import org.eclipse.lsp4j.PublishDiagnosticsParams
 import java.io.IOException
 import java.net.URI
@@ -255,6 +256,13 @@ internal class BiomeLspServerDescriptor(
         })
 
     override val lspServerListener = object : LspServerListener {
+        override fun serverInitialized(params: InitializeResult) {
+            if (!project.isDisposed) {
+                project.messageBus.syncPublisher(BiomeLspDocumentListener.TOPIC)
+                    .serverInitialized(this@BiomeLspServerDescriptor)
+            }
+        }
+
         override fun serverStopped(shutdownNormally: Boolean) {
             if (!project.isDisposed) {
                 project.messageBus.syncPublisher(BiomeLspDocumentListener.TOPIC)

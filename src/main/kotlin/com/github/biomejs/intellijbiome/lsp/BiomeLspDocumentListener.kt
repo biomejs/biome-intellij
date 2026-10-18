@@ -6,6 +6,7 @@ import org.eclipse.lsp4j.PublishDiagnosticsParams
 /** Notifications observed through the descriptor's supported client and lifecycle hooks. */
 internal interface BiomeLspDocumentListener {
     fun diagnosticsPublished(descriptor: BiomeLspServerDescriptor, params: PublishDiagnosticsParams) {}
+    fun serverInitialized(descriptor: BiomeLspServerDescriptor) {}
     fun serverStopped(descriptor: BiomeLspServerDescriptor) {}
 
     companion object {
