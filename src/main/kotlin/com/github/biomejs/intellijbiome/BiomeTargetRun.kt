@@ -19,6 +19,8 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Computable
 import com.intellij.openapi.util.SystemInfoRt
+import com.intellij.openapi.util.io.FileUtil
+import com.intellij.util.PathUtilRt
 import com.intellij.util.io.BaseOutputReader
 import java.io.IOException
 import java.nio.file.Files
@@ -127,8 +129,8 @@ internal fun supportsManualNodeTarget(executable: String, interpreter: NodeJsInt
 
 /** Read the distribution without invoking the platform parser, which is disabled on other hosts. */
 private fun wslDistributionId(path: String): String? {
-    val normalized = path.replace('\\', '/')
-    if (!normalized.startsWith("//")) return null
+    val normalized = FileUtil.toSystemIndependentName(path)
+    if (!PathUtilRt.startsWithSeparatorSeparator(normalized)) return null
     val parts = normalized.removePrefix("//").split('/', limit = 3)
     if (parts.size != 3 || parts[1].isEmpty() || parts[2].isEmpty()) return null
     return parts[1].takeIf {
@@ -137,7 +139,8 @@ private fun wslDistributionId(path: String): String? {
 }
 
 // WslPath's parser is host-gated; a lexical UNC guard must not depend on the IDE's host OS.
-private fun isUncPath(path: String): Boolean = path.replace('\\', '/').startsWith("//")
+private fun isUncPath(path: String): Boolean =
+    PathUtilRt.startsWithSeparatorSeparator(FileUtil.toSystemIndependentName(path))
 
 /** Windows resolves batch executables before applying the child's working directory. */
 private fun localWindowsBatchPath(executable: String, workingDirectory: String?): String {
