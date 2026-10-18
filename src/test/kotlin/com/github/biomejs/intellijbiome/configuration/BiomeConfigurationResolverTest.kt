@@ -6,8 +6,10 @@ import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationResoluti
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.intellij.javascript.nodejs.interpreter.wsl.WslNodeInterpreter
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.project.BaseProjectDirectories.Companion.getBaseDirectories
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.io.FileUtil
@@ -18,6 +20,7 @@ import com.intellij.testFramework.builders.ModuleFixtureBuilder
 import com.intellij.testFramework.fixtures.CodeInsightFixtureTestCase
 import com.intellij.testFramework.fixtures.ModuleFixture
 import java.nio.file.Files
+import java.util.concurrent.Callable
 
 class BiomeConfigurationResolverTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<ModuleFixture>>() {
     private val automatic = BiomeConfigurationSettings(ConfigurationMode.AUTOMATIC)
@@ -78,7 +81,7 @@ class BiomeConfigurationResolverTest : CodeInsightFixtureTestCase<ModuleFixtureB
         val settings = manual("config/custom.jsonc")
         assertEquals(Found(first, firstSource.parent), resolve(firstSource, settings))
         assertEquals(Found(secondConfig, secondBase), resolve(secondSource, settings))
-        val ambiguous = BiomeConfigurationResolver.resolve(project, null, settings)
+        val ambiguous = resolve(null, settings)
         assertTrue(ambiguous.toString(), ambiguous is BiomeConfigurationResolution.Ambiguous)
         assertEquals(setOf(Found(first, firstSource.parent), Found(secondConfig, secondBase)),
             (ambiguous as BiomeConfigurationResolution.Ambiguous).candidates.toSet())
@@ -92,7 +95,7 @@ class BiomeConfigurationResolverTest : CodeInsightFixtureTestCase<ModuleFixtureB
         val config = checkNotNull(VfsUtil.findFile(path, true))
         assertEquals(Found(config, source.parent), resolve(source, manual(config.path)))
         secondBase()
-        val result = BiomeConfigurationResolver.resolve(project, null, manual(config.path))
+        val result = resolve(null, manual(config.path))
         assertTrue("A shared external file must retain ambiguous base ownership", result is BiomeConfigurationResolution.Ambiguous)
     }
 
@@ -173,8 +176,8 @@ class BiomeConfigurationResolverTest : CodeInsightFixtureTestCase<ModuleFixtureB
         }
     }
 
-    private fun resolve(file: VirtualFile, settings: BiomeConfigurationSettings = automatic) =
-        BiomeConfigurationResolver.resolve(project, file, settings)
+    private fun resolve(file: VirtualFile?, settings: BiomeConfigurationSettings = automatic) =
+        resolveBiomeConfigurationForTest(project, file, settings)
 
     private fun manual(path: String) = BiomeConfigurationSettings(ConfigurationMode.MANUAL, path)
 
@@ -188,4 +191,12 @@ class BiomeConfigurationResolverTest : CodeInsightFixtureTestCase<ModuleFixtureB
         }, 5)
         return base
     }
+}
+
+internal fun resolveBiomeConfigurationForTest(project: Project, file: VirtualFile?, settings: BiomeConfigurationSettings): BiomeConfigurationResolution {
+    val future = ApplicationManager.getApplication().executeOnPooledThread(Callable {
+        BiomeConfigurationResolver.resolve(project, file, settings)
+    })
+    PlatformTestUtil.waitWithEventsDispatching("Background configuration resolution did not finish", { future.isDone }, 10)
+    return future.get()
 }
