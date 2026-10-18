@@ -42,6 +42,7 @@
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.modules.ultimate</depends>
   <depends>JavaScript</depends>
+  <depends>com.intellij.modules.json</depends>
 
   <resource-bundle>messages.BiomeBundle</resource-bundle>
 
@@ -67,6 +68,10 @@
                   implementation="com.github.biomejs.intellijbiome.actions.BiomeCheckOnSaveAction"
                   order="first, before FormatOnSaveAction"/>
     />
+  </extensions>
+  <extensions defaultExtensionNs="JavaScript">
+    <JsonSchema.ContentAwareSchemaFileProvider
+      implementation="com.github.biomejs.intellijbiome.schema.BiomeCustomConfigSchemaProvider"/>
   </extensions>
   <actions>
     <action id="BiomeOpenConfiguration"

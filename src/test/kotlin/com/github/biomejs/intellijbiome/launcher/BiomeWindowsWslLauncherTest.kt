@@ -5,6 +5,7 @@ import com.github.biomejs.intellijbiome.ProcessCommandParameter
 import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationResolution
 import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationSettings
 import com.github.biomejs.intellijbiome.configuration.resolveBiomeConfigurationForTest
+import com.github.biomejs.intellijbiome.schema.BiomeCustomConfigSchemaProvider
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
@@ -180,6 +181,30 @@ class BiomeWindowsWslLauncherTest : BiomeWindowsLauncherTestCase() {
         val found = result as BiomeConfigurationResolution.Found
         assertEquals(source.parent, found.base)
         assertEquals("""{"marker":"host mount"}""", VfsUtilCore.loadText(found.file))
+    }
+
+    fun testCustomSchemaUsesPublishedFallbackForBothWslUncAliases() {
+        val config = checkNotNull(VfsUtil.findFile(Files.writeString(root.resolve("custom.jsonc"), "{}"), true))
+        ModuleRootModificationUtil.addContentRoot(myFixture.module, config.parent.path)
+        val settings = BiomeSettings.getInstance(project)
+        settings.configurationMode = ConfigurationMode.MANUAL
+        settings.supportedExtensions = mutableListOf(".js")
+        for (alias in listOf("wsl$", "wsl.localhost")) {
+            val otherAlias = if (alias == "wsl$") "wsl.localhost" else "wsl$"
+            val opened = checkNotNull(VfsUtil.findFile(Path.of("//$otherAlias/$distribution$linuxRoot/custom.jsonc"), true))
+            VfsRootAccess.allowRootAccess(testRootDisposable, opened.parent.path)
+            myFixture.configureFromExistingVirtualFile(opened)
+            for (path in listOf("//$alias/$distribution$linuxRoot/custom.jsonc", "//$alias/$distribution/$linuxRoot/custom.jsonc", "custom.jsonc",
+                "$linuxRoot/custom.jsonc", "$linuxRoot/../${root.fileName}/custom.jsonc")) {
+                settings.configPath = path
+                assertEquals("Expected schema for $path", "https://biomejs.dev/schemas/2.5.15/schema.json",
+                    BiomeCustomConfigSchemaProvider().getSchemaFile(myFixture.file)?.url)
+            }
+            settings.configPath = "//$alias/$distribution$linuxRoot/Custom.jsonc"
+            assertNull("Linux filename case must remain significant", BiomeCustomConfigSchemaProvider().getSchemaFile(myFixture.file))
+        }
+        assertTrue(com.intellij.platform.lsp.api.LspServerManager.getInstance(project)
+            .getServersForProvider(com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider::class.java).isEmpty())
     }
 
     private fun makeExecutable(path: Path) {
