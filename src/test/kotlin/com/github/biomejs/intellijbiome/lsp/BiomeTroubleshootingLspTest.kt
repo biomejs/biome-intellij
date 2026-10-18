@@ -4,6 +4,7 @@ import com.github.biomejs.intellijbiome.services.BiomeTroubleshootingService
 import com.github.biomejs.intellijbiome.services.DefaultBiomeLspRequests
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
+import com.intellij.ide.plugins.cl.PluginAwareClassLoader
 import com.intellij.lang.javascript.modules.TestNpmPackage
 import com.intellij.lang.javascript.modules.TestNpmPackageInstaller
 import com.intellij.openapi.components.service
@@ -12,6 +13,9 @@ import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.LspServerState
 import com.intellij.testFramework.PlatformTestUtil
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.Properties
 
 @TestNpmPackage("@biomejs/biome@2.5.15")
 class BiomeTroubleshootingLspTest : BiomeLspFixtureTestCase() {
@@ -55,6 +59,7 @@ class BiomeTroubleshootingLspTest : BiomeLspFixtureTestCase() {
         // Settings can differ from a running descriptor; report the captured executable, not a fresh discovery.
         BiomeSettings.getInstance(project).executablePath = "/never/launch/this"
         val report = runWithModalProgressBlocking(project, "Test real troubleshooting") { service.collect(selected) }!!
+        assertPluginVersionForRuntimeLoader(report)
         assertTrue(report.text, report.text.contains("Version: 2.5.15"))
         assertTrue(report.text, report.text.contains("Selected executable: $executable"))
         assertTrue(report.text, report.text.contains("Configured executable: /never/launch/this"))
@@ -80,8 +85,26 @@ class BiomeTroubleshootingLspTest : BiomeLspFixtureTestCase() {
         val service = project.service<BiomeTroubleshootingService>()
         assertTrue(service.targets(file).isEmpty())
         val report = service.localReport(file)
+        assertPluginVersionForRuntimeLoader(report)
         assertTrue(report.text, report.text.contains("No running Biome server"))
         assertTrue(manager.getServersForProvider(BiomeLspServerSupportProvider::class.java).isEmpty())
+    }
+
+    private fun assertPluginVersionForRuntimeLoader(report: BiomeTroubleshootingService.Report) {
+        val loader = BiomeTroubleshootingService::class.java.classLoader
+        val versionLine = report.text.lineSequence().single { it.startsWith("Plugin: ") }
+        if (loader is PluginAwareClassLoader) {
+            val properties = Properties().apply {
+                Files.newInputStream(Path.of("gradle.properties")).use { load(it) }
+            }
+            val expectedVersion = checkNotNull(properties.getProperty("pluginVersion"))
+            assertEquals("Plugin: $expectedVersion", versionLine)
+        } else {
+            // Headless fixtures load plugin sources through the platform test classloader.
+            // This proves the absent-descriptor branch, not the packaged plugin version.
+            assertEquals("Unexpected non-plugin test classloader", "com.intellij.util.lang.PathClassLoader", loader.javaClass.name)
+            assertEquals("Plugin: unknown", versionLine)
+        }
     }
 
     fun testDisposedProjectCannotDeliverCollectedInformation() {
