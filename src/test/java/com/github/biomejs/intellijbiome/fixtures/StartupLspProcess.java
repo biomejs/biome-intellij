@@ -17,6 +17,7 @@ public final class StartupLspProcess {
         var input = new BufferedInputStream(System.in);
         var idPattern = Pattern.compile("\"id\"\\s*:\\s*(\"[^\"]+\"|\\d+)");
         String configurationLog = System.getenv("BIOME_STARTUP_CONFIGURATION_LOG");
+        String editorDirectory = System.getenv("BIOME_EDITOR_FIXTURE_DIRECTORY");
         while (true) {
             int length = -1;
             var line = new StringBuilder();
@@ -43,7 +44,8 @@ public final class StartupLspProcess {
                 }
                 boolean initialize = message.contains("\"initialize\"");
                 if (initialize) awaitInitializeRelease();
-                String result = initialize ? "{\"capabilities\":{}}" : "null";
+                String result = initialize ? (editorDirectory == null ? "{\"capabilities\":{}}" :
+                    "{\"capabilities\":{\"textDocumentSync\":{\"openClose\":true,\"change\":1}}}") : "null";
                 send("{\"jsonrpc\":\"2.0\",\"id\":" + id.group(1) + ",\"result\":" + result + "}");
             } else if (message.contains("\"initialized\"") && configurationLog != null) {
                 send("{\"jsonrpc\":\"2.0\",\"id\":\"startup-config\",\"method\":\"workspace/configuration\",\"params\":{\"items\":[{\"section\":\"biome\"}]}}");

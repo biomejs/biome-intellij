@@ -2,25 +2,40 @@ package com.github.biomejs.intellijbiome.startup
 
 import com.github.biomejs.intellijbiome.BiomeTargetRun
 import com.github.biomejs.intellijbiome.fixtures.StartupLspProcess
+import com.github.biomejs.intellijbiome.lsp.BiomeLspLifecycleService
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
+import com.github.biomejs.intellijbiome.lsp.waitUntilFileOpenedByLspServer
+import com.github.biomejs.intellijbiome.services.BiomeServerService
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.wsl.WSLDistribution
+import com.intellij.ide.trustedProjects.TrustedProjects
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterRef
 import com.intellij.javascript.nodejs.interpreter.local.NodeJsLocalInterpreter
+import com.intellij.openapi.application.impl.NonBlockingReadActionImpl
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.extensions.ExtensionPointName
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.project.BaseProjectDirectories
 import com.intellij.openapi.project.BaseProjectDirectories.Companion.getBaseDirectories
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.roots.ModuleRootManager
+import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.Computable
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerDescriptor
 import com.intellij.platform.lsp.api.LspServerManager
@@ -30,6 +45,7 @@ import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.builders.ModuleFixtureBuilder
 import com.intellij.testFramework.fixtures.CodeInsightFixtureTestCase
 import com.intellij.testFramework.fixtures.ModuleFixture
+import com.intellij.testFramework.replaceService
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -42,6 +58,7 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 class BiomeStartupLspTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<ModuleFixture>>() {
@@ -105,6 +122,141 @@ class BiomeStartupLspTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Modu
 
         // Discovery has finished; its cancellation must not poison the queued Node launch.
         start(descriptor) { assertOnlyLspInvocation(Path.of(myFixture.tempDirPath)) }
+    }
+
+    fun testProjectStartupDiscoversRestoredChildWithoutRestartingIndependentWorkspace() {
+        writeShellLauncher(mapOf("BIOME_EDITOR_FIXTURE_DIRECTORY" to myFixture.tempDirPath))
+        myFixture.addFileToProject("independent/biome.json", """{"root":true}""")
+        val independent = myFixture.addFileToProject("independent/index.js", "let independent = 1;").virtualFile
+        myFixture.addFileToProject("child/biome.json", """{"root":false,"extends":"//"}""")
+        val child = myFixture.addFileToProject("child/index.js", "let child = 1;").virtualFile
+        val manager = LspServerManager.getInstance(project)
+        val editorManager = FileEditorManager.getInstance(project)
+        editorManager.openFile(independent, false)
+        try {
+            PlatformTestUtil.waitWithEventsDispatching("Independent server did not initialize", {
+                manager.getServersForProvider(BiomeLspServerSupportProvider::class.java)
+                    .singleOrNull()?.state == LspServerState.Running
+            }, 8)
+            val independentServer = manager.getServersForProvider(BiomeLspServerSupportProvider::class.java).single()
+            val directories = DelayedBaseDirectories(project, project.getBaseDirectories())
+            project.replaceService(BaseProjectDirectories::class.java, directories, testRootDisposable)
+            editorManager.openFile(child, true)
+            NonBlockingReadActionImpl.waitForAsyncTaskCompletion()
+            assertTrue("Restored editor must attempt discovery before bases are ready", directories.unavailableReads.get() > 0)
+            val childEditors = editorManager.getEditors(child).toList()
+            assertFalse(independentServer.descriptor.isSupportedFile(child))
+            assertEquals(listOf(independentServer), manager.getServersForProvider(BiomeLspServerSupportProvider::class.java).toList())
+
+            // Model the base-directory snapshot becoming ready after the early editor-open notification.
+            directories.available = true
+            runProjectStartupActivities()
+            PlatformTestUtil.waitWithEventsDispatching("Project startup did not discover the restored child workspace", {
+                val servers = manager.getServersForProvider(BiomeLspServerSupportProvider::class.java)
+                servers.size == 2 && servers.all { it.state == LspServerState.Running }
+            }, 8)
+            waitUntilFileOpenedByLspServer(project, child)
+            val servers = manager.getServersForProvider(BiomeLspServerSupportProvider::class.java)
+            assertTrue("The independent server must survive startup discovery", servers.any { it === independentServer })
+            assertEquals(listOf(child.parent.parent), servers.single { it.descriptor.isSupportedFile(child) }.descriptor.roots.toList())
+            assertEquals("Recovery must not reopen the editor", childEditors, editorManager.getEditors(child).toList())
+            assertEquals(2, invocations().size)
+            assertTrue("Recovery must not run a version probe", invocations().all { it.substringAfter('\t') == "lsp-proxy" })
+        } finally {
+            manager.stopServers(BiomeLspServerSupportProvider::class.java)
+        }
+    }
+
+    fun testProjectStartupKeepsStoppedWorkspaceStoppedWhileDiscoveringAnotherRoot() {
+        val parent = myFixture.addFileToProject("index.js", "let parent = 1;").virtualFile
+        myFixture.addFileToProject("independent/biome.json", """{"root":true}""")
+        val independent = myFixture.addFileToProject("independent/index.js", "let independent = 1;").virtualFile
+        val manager = LspServerManager.getInstance(project)
+        val editorManager = FileEditorManager.getInstance(project)
+        editorManager.openFile(parent, false)
+        try {
+            PlatformTestUtil.waitWithEventsDispatching("Parent server did not initialize", {
+                manager.getServersForProvider(BiomeLspServerSupportProvider::class.java)
+                    .singleOrNull()?.state == LspServerState.Running
+            }, 8)
+            project.service<BiomeServerService>().stopBiomeServer()
+            PlatformTestUtil.waitWithEventsDispatching("Stopped parent was not removed", {
+                manager.getServersForProvider(BiomeLspServerSupportProvider::class.java).isEmpty()
+            }, 8)
+            val directories = DelayedBaseDirectories(project, project.getBaseDirectories())
+            project.replaceService(BaseProjectDirectories::class.java, directories, testRootDisposable)
+            // The SDK test manager omits Before; preserve the desktop's real-open intent.
+            project.messageBus.syncPublisher(com.intellij.openapi.fileEditor.FileEditorManagerListener.Before.FILE_EDITOR_MANAGER)
+                .beforeFileOpened(editorManager, independent)
+            editorManager.openFile(independent, true)
+            NonBlockingReadActionImpl.waitForAsyncTaskCompletion()
+            assertTrue(directories.unavailableReads.get() > 0)
+
+            directories.available = true
+            runProjectStartupActivities()
+            PlatformTestUtil.waitWithEventsDispatching("Startup did not discover the unstopped independent root", {
+                manager.getServersForProvider(BiomeLspServerSupportProvider::class.java).singleOrNull()?.let {
+                    it.state == LspServerState.Running && it.descriptor.roots.toList() == listOf(independent.parent)
+                } == true
+            }, 8)
+            assertTrue(project.service<BiomeLspLifecycleService>().isStopped(parent.parent))
+            assertEquals("Startup must not relaunch the stopped parent", 2, invocations().size)
+        } finally {
+            manager.stopServers(BiomeLspServerSupportProvider::class.java)
+        }
+    }
+
+    fun testProjectStartupDoesNotLaunchForAnUntrustedProject() {
+        val source = myFixture.addFileToProject("index.js", "let value = 1;").virtualFile
+        val directories = DelayedBaseDirectories(project, project.getBaseDirectories())
+        project.replaceService(BaseProjectDirectories::class.java, directories, testRootDisposable)
+        val editorManager = FileEditorManager.getInstance(project)
+        editorManager.openFile(source, true)
+        NonBlockingReadActionImpl.waitForAsyncTaskCompletion()
+        directories.available = true
+        val headlessTrust = System.getProperty("idea.trust.headless.disabled")
+        try {
+            System.setProperty("idea.trust.headless.disabled", "false")
+            TrustedProjects.setProjectTrusted(project, false)
+            assertFalse("The test must really exercise safe mode", TrustedProjects.isProjectTrusted(project))
+            runProjectStartupActivities()
+            NonBlockingReadActionImpl.waitForAsyncTaskCompletion()
+            assertTrue(LspServerManager.getInstance(project)
+                .getServersForProvider(BiomeLspServerSupportProvider::class.java).isEmpty())
+            assertTrue("Safe mode must not invoke the executable", invocations().isEmpty())
+        } finally {
+            editorManager.closeFile(source)
+            TrustedProjects.setProjectTrusted(project, true)
+            if (headlessTrust == null) System.clearProperty("idea.trust.headless.disabled")
+            else System.setProperty("idea.trust.headless.disabled", headlessTrust)
+        }
+    }
+
+    fun testProjectStartupDoesNotLaunchWhenDisabled() {
+        BiomeSettings.getInstance(project).configurationMode = ConfigurationMode.DISABLED
+        val source = myFixture.addFileToProject("index.js", "let value = 1;").virtualFile
+        FileEditorManager.getInstance(project).openFile(source, true)
+        NonBlockingReadActionImpl.waitForAsyncTaskCompletion()
+        runProjectStartupActivities()
+        NonBlockingReadActionImpl.waitForAsyncTaskCompletion()
+        assertTrue(LspServerManager.getInstance(project)
+            .getServersForProvider(BiomeLspServerSupportProvider::class.java).isEmpty())
+        assertTrue("Disabled startup must not invoke the executable", invocations().isEmpty())
+    }
+
+    @Suppress("DEPRECATION")
+    fun testProjectStartupIgnoresDefaultAndDisposedProjects() {
+        runProjectStartupActivities(ProjectManager.getInstance().defaultProject)
+        val directory = Files.createTempDirectory("biome-startup-disposed-")
+        val disposedProject = checkNotNull(ProjectManager.getInstance().createProject("biome-startup-disposed", directory.toString()))
+        try {
+            ApplicationManager.getApplication().runWriteAction { Disposer.dispose(disposedProject) }
+            runProjectStartupActivities(disposedProject)
+            assertTrue(invocations().isEmpty())
+        } finally {
+            if (!disposedProject.isDisposed) ApplicationManager.getApplication().runWriteAction { Disposer.dispose(disposedProject) }
+            FileUtil.delete(directory.toFile())
+        }
     }
 
     fun testManualConfigurationUsesWorkspaceSettingsWithoutCliArguments() {
@@ -297,6 +449,28 @@ class BiomeStartupLspTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Modu
             override fun ensureServerStarted(descriptor: LspServerDescriptor) { descriptors += descriptor }
         })
         return descriptors.single()
+    }
+
+    private fun runProjectStartupActivities(targetProject: Project = project) {
+        // Resolve only our contribution: unrelated bundled startup activities can use older interfaces.
+        val activity = ExtensionPointName.create<ProjectActivity>("com.intellij.postStartupActivity")
+            .findExtension(BiomeStartupActivity::class.java) ?: return
+        runWithModalProgressBlocking(project, "Test restored Biome editors") {
+            activity.execute(targetProject)
+        }
+    }
+
+    private class DelayedBaseDirectories(project: Project, private val directories: Set<VirtualFile>) : BaseProjectDirectories(project) {
+        @Volatile var available = false
+        val unavailableReads = AtomicInteger()
+        override val isProcessing: Boolean get() = !available
+        override fun getBaseDirectories(): Set<VirtualFile> {
+            if (available) return directories
+            unavailableReads.incrementAndGet()
+            return emptySet()
+        }
+        override fun getBaseDirectoryFor(virtualFile: VirtualFile): VirtualFile? =
+            getBaseDirectories().firstOrNull { VfsUtilCore.isAncestor(it, virtualFile, false) }
     }
 
     // Exercise the real LSP response with a controlled mapper, without launching Windows/WSL.
