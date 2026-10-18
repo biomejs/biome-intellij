@@ -59,6 +59,7 @@ internal class BiomeSchemaAssociationService(private val project: Project, priva
     @Volatile private var ready: Map<String, Association> = emptyMap()
     @Volatile private var published: Map<String, Association> = emptyMap()
     @Volatile private var watchedRoots: Set<String> = emptySet()
+    @Volatile private var watchedPackageCandidates: Set<String> = emptySet()
     @Volatile private var watchedConfigurations: Set<String> = emptySet()
     private var generation = 0L
     private var pending: Job? = null
@@ -94,12 +95,14 @@ internal class BiomeSchemaAssociationService(private val project: Project, priva
         return scope.launch {
             delay(50)
             val input = readAction { capture() } ?: return@launch
-            val associations = withContext(Dispatchers.IO) { resolve(input) }
+            val resolution = withContext(Dispatchers.IO) { resolve(input) }
             withContext(Dispatchers.EDT) {
                 currentCoroutineContext().ensureActive()
                 val current = readAction { capture() == input }
                 synchronized(this@BiomeSchemaAssociationService) {
                     if (project.isDisposed || request != generation || !current) return@synchronized
+                    watchedPackageCandidates = resolution.packageRoots
+                    val associations = resolution.associations
                     val changed = published != associations || ready != associations
                     ready = associations
                     if (changed) {
@@ -136,7 +139,7 @@ internal class BiomeSchemaAssociationService(private val project: Project, priva
     private fun affectsAssociation(event: VFileEvent): Boolean {
         val paths = listOfNotNull(event.path, event.file?.path).map(::schemaConfigurationPath)
         if (paths.any { it in watchedConfigurations || "file://$it" in published }) return true
-        val roots = watchedRoots + published.values.map { schemaConfigurationPath(it.packagePath) }
+        val roots = watchedRoots + watchedPackageCandidates + published.values.map { schemaConfigurationPath(it.packagePath) }
         if (paths.none { path -> roots.any { root -> path == root || path.startsWith("$root/") || root.startsWith("$path/") } }) return false
         // Ordinary source/data edits do not affect executable identity or schema contents.
         return event !is VFileContentChangeEvent || paths.any {
@@ -150,9 +153,15 @@ internal class BiomeSchemaAssociationService(private val project: Project, priva
         null
     }
 
-    private suspend fun resolve(input: Input): Map<String, Association> {
-        if (input.settings.mode != ConfigurationMode.MANUAL || input.settings.configPath.isBlank()) return emptyMap()
+    private suspend fun resolve(input: Input): Resolution {
+        if (input.settings.mode != ConfigurationMode.MANUAL || input.settings.configPath.isBlank()) return Resolution()
         val candidates = linkedMapOf<String, MutableList<Association?>>()
+        val packageRoots = linkedSetOf<String>()
+        fun schema(executable: String, base: VirtualFile, version: String?): Association? {
+            val candidate = installedSchema(executable, base, version)
+            candidate.root?.let(packageRoots::add)
+            return candidate.association
+        }
         for (base in input.context.bases) {
             currentCoroutineContext().ensureActive()
             val context = input.context.copy(selectedFile = base, selectedPath = base.path, owningBase = base)
@@ -163,9 +172,9 @@ internal class BiomeSchemaAssociationService(private val project: Project, priva
                 server.configPath?.let(::schemaConfigurationPath) == schemaConfigurationPath(input.settings.configPath) && server.roots.any { VfsUtilCore.isAncestor(base, it, false) }
             }
             val schemas = if (matching.isNotEmpty()) {
-                matching.map { installedSchema(it.executable, base, it.version) }
+                matching.map { schema(it.executable, base, it.version) }
             } else if (input.settings.executablePath.isNotBlank()) {
-                listOf(installedSchema(input.settings.executablePath, base, null))
+                listOf(schema(input.settings.executablePath, base, null))
             } else {
                 // A Manual override does not change launch selection: source files can select different
                 // packages within one IDE base. Never discover relative to an external config's parent.
@@ -175,26 +184,38 @@ internal class BiomeSchemaAssociationService(private val project: Project, priva
                 sources.map { source ->
                     val executable = BiomePackage(project).getPackage(source, input.settings.interpreter)?.getAbsolutePackagePathToRequire(project)
                         ?.let { Path.of(it, "bin", "biome").toString() }
-                    executable?.let { installedSchema(it, base, null) }
+                    executable?.let { schema(it, base, null) }
                 }
             }
             candidates.getOrPut(configurationUrl(resolved.file)) { mutableListOf() }.addAll(schemas)
         }
-        return candidates.mapNotNull { (url, schemas) ->
+        val associations = candidates.mapNotNull { (url, schemas) ->
             // Unknown identity is not permission to borrow another base's schema.
             if (schemas.any { it == null }) null else schemas.distinct().singleOrNull()?.let { url to it }
         }.toMap()
+        return Resolution(associations, packageRoots.toSet())
+    }
+
+    /** Retain a canonical dependency even when metadata or schema validation cannot yet succeed. */
+    internal fun installedSchema(executable: String, base: VirtualFile, serverVersion: String?): PackageCandidate {
+        check(!ApplicationManager.getApplication().isReadAccessAllowed)
+        ApplicationManager.getApplication().assertIsNonDispatchThread()
+        val realExecutable = try {
+            val path = Path.of(executable)
+            if (!path.isAbsolute && path.parent == null) return PackageCandidate() // PATH is not package identity.
+            base.toNioPath().resolve(path).toRealPath()
+        } catch (_: IOException) {
+            return PackageCandidate()
+        } catch (_: InvalidPathException) {
+            return PackageCandidate()
+        }
+        val root = realExecutable.parent?.parent ?: return PackageCandidate()
+        return PackageCandidate(schemaConfigurationPath(root.toString()), readPackageSchema(root, realExecutable, serverVersion))
     }
 
     /** Prove the selected file is this package's declared bin, including npm symlinks. No process probes. */
-    internal fun installedSchema(executable: String, base: VirtualFile, serverVersion: String?): Association? {
-        check(!ApplicationManager.getApplication().isReadAccessAllowed)
-        ApplicationManager.getApplication().assertIsNonDispatchThread()
+    private fun readPackageSchema(root: Path, realExecutable: Path, serverVersion: String?): Association? {
         return try {
-            val path = Path.of(executable)
-            if (!path.isAbsolute && path.parent == null) return null // PATH lookup is not package identity.
-            val realExecutable = base.toNioPath().resolve(path).toRealPath()
-            val root = realExecutable.parent?.parent ?: return null
             val metadata = Json.parseToJsonElement(Files.readString(root.resolve("package.json"))) as? JsonObject ?: return null
             if ((metadata["name"] as? JsonPrimitive)?.contentOrNull != "@biomejs/biome") return null
             val version = (metadata["version"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() } ?: return null
@@ -221,6 +242,8 @@ internal class BiomeSchemaAssociationService(private val project: Project, priva
 
     override fun dispose() = Unit
 
+    private data class Resolution(val associations: Map<String, Association> = emptyMap(), val packageRoots: Set<String> = emptySet())
+    internal data class PackageCandidate(val root: String? = null, val association: Association? = null)
     internal data class Association(val packagePath: String, val version: String, val schema: VirtualFile, val schemaStamp: Long)
     private data class Selection(val roots: List<VirtualFile>, val executable: String, val configPath: String?, val version: String?)
     private data class Input(val settings: BiomeConfigurationSettings, val interpreterName: String?,

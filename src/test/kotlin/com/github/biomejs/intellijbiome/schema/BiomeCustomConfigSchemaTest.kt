@@ -243,9 +243,9 @@ class BiomeCustomConfigSchemaTest : CodeInsightFixtureTestCase<ModuleFixtureBuil
         val base = myFixture.tempDirFixture.findOrCreateDir(".")
         val executable = settings.executablePath
         val future = ApplicationManager.getApplication().executeOnPooledThread<List<BiomeSchemaAssociationService.Association?>> {
-            listOf(associations.installedSchema(executable, base, "2.5.15"),
-                associations.installedSchema(executable, base, "2.4.0"),
-                associations.installedSchema(executable, base, null))
+            listOf(associations.installedSchema(executable, base, "2.5.15").association,
+                associations.installedSchema(executable, base, "2.4.0").association,
+                associations.installedSchema(executable, base, null).association)
         }
         waitUntil("Package version checks did not finish") { future.isDone }
         val results = future.get(10, TimeUnit.SECONDS)
@@ -364,6 +364,71 @@ class BiomeCustomConfigSchemaTest : CodeInsightFixtureTestCase<ModuleFixtureBuil
         assertFalse(schemaConfigurationPath("//wsl$/Ubuntu/home/Config.JSONC") ==
             schemaConfigurationPath("//wsl.localhost/ubuntu/home/config.jsonc"))
         assertEquals("//fileserver/share/Config.JSONC", schemaConfigurationPath("//fileserver/share/Config.JSONC"))
+    }
+
+    fun testExternalBinSymlinkSchemaCreationRefreshesWithoutReopening() =
+        externalPackageRepair(implicitExecutable = false, invalidMetadata = false)
+
+    fun testExternalBinSymlinkMetadataRepairRefreshesWithoutReopening() =
+        externalPackageRepair(implicitExecutable = false, invalidMetadata = true)
+
+    fun testDiscoveredExternalPackageSchemaCreationRefreshesWithoutReopening() =
+        externalPackageRepair(implicitExecutable = true, invalidMetadata = false)
+
+    private fun externalPackageRepair(implicitExecutable: Boolean, invalidMetadata: Boolean) {
+        val external = Files.createTempDirectory("biome-schema-external-package-").toRealPath()
+        Disposer.register(testRootDisposable) { FileUtil.delete(external.toFile()) }
+        com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess.allowRootAccess(testRootDisposable, external.toString())
+        Files.createDirectories(external.resolve("bin"))
+        val bin = Files.writeString(external.resolve("bin/biome"), "#!/usr/bin/env node\n")
+        val metadataText = """{"name":"@biomejs/biome","version":"2.5.15","bin":{"biome":"bin/biome"}}"""
+        Files.writeString(external.resolve("package.json"), if (invalidMetadata) "{broken" else metadataText)
+        if (invalidMetadata) Files.writeString(external.resolve("configuration_schema.json"), schemaText("externalOnly"))
+        val packageRoot = VfsUtil.findFile(external, true)!!
+        val selected = if (implicitExecutable) {
+            myFixture.addFileToProject("package.json", """{"dependencies":{"@biomejs/biome":"2.5.15"}}""")
+            val directory = myFixture.tempDirFixture.findOrCreateDir("node_modules/@biomejs")
+            Files.createSymbolicLink(directory.toNioPath().resolve("biome"), external)
+        } else {
+            val directory = myFixture.tempDirFixture.findOrCreateDir("node_modules/.bin")
+            Files.createSymbolicLink(directory.toNioPath().resolve("biome"), bin)
+        }
+        VfsUtil.findFile(selected, true)
+        settings.executablePath = if (implicitExecutable) "" else selected.toString()
+        val config = openConfig()
+        // Complete the initial unresolved attempt before issuing the only repair trigger: a VFS change.
+        refresh()
+        assertNull(associations.schemaFor(config))
+        val schema = WriteCommandAction.writeCommandAction(project).compute<VirtualFile, RuntimeException> {
+            if (invalidMetadata) {
+                VfsUtil.saveText(packageRoot.findChild("package.json")!!, metadataText)
+                packageRoot.findChild("configuration_schema.json")!!
+            } else {
+                packageRoot.createChildData(this, "configuration_schema.json").also {
+                    VfsUtil.saveText(it, schemaText("externalOnly"))
+                }
+            }
+        }
+        awaitSchema(schema)
+        assertContainsElements(completions(), "externalOnly")
+
+        val resets = java.util.concurrent.atomic.AtomicInteger()
+        val callback = Runnable { resets.incrementAndGet() }
+        json.registerResetAction(callback)
+        try {
+            WriteCommandAction.runWriteCommandAction(project) { schema.delete(this) }
+            waitUntil("Schema loss was not published") { resets.get() > 0 && associations.schemaFor(config) == null }
+            val restored = WriteCommandAction.writeCommandAction(project).compute<VirtualFile, RuntimeException> {
+                packageRoot.createChildData(this, "configuration_schema.json").also {
+                    VfsUtil.saveText(it, schemaText("restoredExternalOnly"))
+                }
+            }
+            awaitSchema(restored)
+            setText("{\"\":false}")
+            assertContainsElements(completions(), "restoredExternalOnly")
+        } finally {
+            json.unregisterResetAction(callback)
+        }
     }
 
     private fun openConfig(path: String = "config/custom.json", text: String = "{\"\":false}"): VirtualFile {
