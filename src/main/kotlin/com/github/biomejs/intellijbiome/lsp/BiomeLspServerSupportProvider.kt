@@ -38,6 +38,9 @@ import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.InitializeResult
 import org.eclipse.lsp4j.PublishDiagnosticsParams
+import org.eclipse.lsp4j.RegistrationParams
+import org.eclipse.lsp4j.UnregistrationParams
+import com.intellij.platform.lsp.api.customization.LspOnTypeFormattingDisabled
 import java.io.IOException
 import java.net.URI
 import java.net.URISyntaxException
@@ -135,6 +138,7 @@ internal class BiomeLspServerDescriptor(
     @Volatile private var requestStamp: Long,
 ) : LspServerDescriptor(project, "Biome", root) {
     override val lsp4jServerClass = BiomeLsp4jServer::class.java
+    internal val onTypeFormatting = BiomeOnTypeFormattingRegistration()
 
     // NodeTargetRun captures its construction-time progress indicator. A cancelled
     // discovery read must not cancel a later launch, which has its own lifecycle fence.
@@ -194,6 +198,7 @@ internal class BiomeLspServerDescriptor(
     override fun startServerProcess(): OSProcessHandler {
         val lifecycle = project.service<BiomeLspLifecycleService>()
         if (!lifecycle.permits(roots.single(), requestStamp)) throw ProcessCanceledException()
+        onTypeFormatting.start()
         val handler = targetRun.startProcess()
         var handedOff = false
         try {
@@ -248,6 +253,22 @@ internal class BiomeLspServerDescriptor(
 
     override fun createLsp4jClient(handler: LspServerNotificationsHandler): Lsp4jClient =
         super.createLsp4jClient(object : LspServerNotificationsHandler by handler {
+            override fun registerCapability(params: RegistrationParams): java.util.concurrent.CompletableFuture<Void> {
+                val epoch = onTypeFormatting.epoch()
+                return handler.registerCapability(params).thenApply {
+                    onTypeFormatting.register(params, epoch)
+                    it
+                }
+            }
+
+            override fun unregisterCapability(params: UnregistrationParams): java.util.concurrent.CompletableFuture<Void> {
+                val epoch = onTypeFormatting.epoch()
+                return handler.unregisterCapability(params).thenApply {
+                    onTypeFormatting.unregister(params, epoch)
+                    it
+                }
+            }
+
             override fun publishDiagnostics(params: PublishDiagnosticsParams) {
                 handler.publishDiagnostics(params)
                 if (!project.isDisposed) {
@@ -266,6 +287,7 @@ internal class BiomeLspServerDescriptor(
         }
 
         override fun serverStopped(shutdownNormally: Boolean) {
+            onTypeFormatting.retire()
             if (!project.isDisposed) {
                 project.messageBus.syncPublisher(BiomeLspDocumentListener.TOPIC)
                     .serverStopped(this@BiomeLspServerDescriptor)
@@ -276,6 +298,8 @@ internal class BiomeLspServerDescriptor(
     override val lspCustomization = object : LspCustomization() {
         override val goToDefinitionCustomizer = LspGoToDefinitionDisabled
         override val completionCustomizer = LspCompletionDisabled
+        // Native application lacks the final lifecycle check required by the opt-in setting.
+        override val onTypeFormattingCustomizer = LspOnTypeFormattingDisabled
 
         override val formattingCustomizer = object : LspFormattingSupport() {
             override fun shouldFormatThisFileExclusivelyByServer(

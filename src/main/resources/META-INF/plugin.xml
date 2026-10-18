@@ -53,6 +53,8 @@
                  description="Per-file timeout in milliseconds for Biome manual and save actions. Nonpositive values use the five-second default."/>
     <platform.lsp.serverSupportProvider
       implementation="com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider"/>
+    <typedHandler implementation="com.github.biomejs.intellijbiome.lsp.BiomeOnTypeHandler" order="last"/>
+    <enterHandlerDelegate implementation="com.github.biomejs.intellijbiome.lsp.BiomeOnTypeEnterHandler" order="last"/>
     <iconProvider implementation="com.github.biomejs.intellijbiome.BiomeConfigIconProvider"/>
     <projectConfigurable id="Settings.Biome"
                          bundle="messages.BiomeBundle"

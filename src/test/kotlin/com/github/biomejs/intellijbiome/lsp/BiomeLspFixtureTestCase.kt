@@ -46,6 +46,7 @@ abstract class BiomeLspFixtureTestCase :
         settings.configPath = ""
         settings.executablePath = ""
         settings.formatOnSave = false
+        settings.formatOnType = false
         settings.sortImportOnSave = false
         settings.applySafeFixesOnSave = false
     }
