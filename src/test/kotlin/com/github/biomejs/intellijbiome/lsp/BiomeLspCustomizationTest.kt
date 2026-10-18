@@ -10,6 +10,7 @@ import com.intellij.platform.lsp.api.customization.LspCompletionDisabled
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.customization.LspGoToDefinitionDisabled
 import com.intellij.platform.lsp.api.customization.LspOnTypeFormattingDisabled
+import com.intellij.platform.lsp.api.customization.LspOnTypeFormattingSupport
 import com.intellij.testFramework.builders.ModuleFixtureBuilder
 import com.intellij.testFramework.fixtures.CodeInsightFixtureTestCase
 import com.intellij.testFramework.fixtures.ModuleFixture
@@ -42,7 +43,16 @@ class BiomeLspCustomizationTest : CodeInsightFixtureTestCase<ModuleFixtureBuilde
         assertSame(LspGoToDefinitionDisabled, descriptor.lspCustomization.goToDefinitionCustomizer)
     }
 
-    fun testOnTypeFormattingRemainsDisabled() {
+    fun testNativeOnTypeFormattingTracksEffectivePreference() {
+        assertSame(LspOnTypeFormattingDisabled, descriptor.lspCustomization.onTypeFormattingCustomizer)
+        settings.formatOnType = true
+        assertTrue(descriptor.lspCustomization.onTypeFormattingCustomizer is LspOnTypeFormattingSupport)
+        settings.configurationMode = ConfigurationMode.DISABLED
+        assertTrue(settings.state.formatOnType)
+        assertSame(LspOnTypeFormattingDisabled, descriptor.lspCustomization.onTypeFormattingCustomizer)
+        settings.configurationMode = ConfigurationMode.MANUAL
+        assertTrue(descriptor.lspCustomization.onTypeFormattingCustomizer is LspOnTypeFormattingSupport)
+        settings.formatOnType = false
         assertSame(LspOnTypeFormattingDisabled, descriptor.lspCustomization.onTypeFormattingCustomizer)
     }
 
