@@ -220,7 +220,7 @@ class BiomeConfigurable(internal val project: Project) :
 
                 project.service<BiomeSchemaAssociationService>().invalidate()
                 biomeServerService.restartBiomeServer()
-                biomeServerService.notifyRestart()
+                biomeServerService.notifySettingsApplied()
             }
         }
     }
