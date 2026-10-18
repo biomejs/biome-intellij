@@ -15,10 +15,10 @@ private val flushPendingFileUpdates by lazy {
     try {
         ManagingFS::class.java.getMethod("flushPendingUpdates", VirtualFile::class.java)
     } catch (missing: NoSuchMethodException) {
-        check(ApplicationInfo.getInstance().build.baselineVersion == 253) {
+        check(ApplicationInfo.getInstance().build.baselineVersion == 261) {
             "Current IDE must expose the physical file-write completion barrier"
         }
-        null // 253 FileDocumentManager writes synchronously.
+        null // 261 finishes physical VFS writes before close() returns.
     }
 }
 
