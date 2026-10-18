@@ -1,6 +1,7 @@
 package com.github.biomejs.intellijbiome.lsp
 
 import com.github.biomejs.intellijbiome.BiomeIcons
+import com.github.biomejs.intellijbiome.actions.BiomeOpenConfigurationAction
 import com.github.biomejs.intellijbiome.settings.BiomeConfigurable
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -25,6 +26,14 @@ import kotlinx.coroutines.launch
 
 internal class BiomeLspServerWidgetItem(server: LspServer, currentFile: VirtualFile?) :
     LspServerWidgetItem(server, currentFile, BiomeIcons.BiomeIcon, BiomeConfigurable::class.java) {
+
+    private val configurationContext by lazy {
+        currentFile?.takeIf { widgetActionLocation == LanguageServicePopupSection.ForCurrentFile }
+            ?: server.descriptor.roots.singleOrNull()
+    }
+
+    override fun createAdditionalInlineActions(): List<AnAction> =
+        super.createAdditionalInlineActions() + BiomeOpenConfigurationAction(configurationContext)
 
     override fun createStopOrRestartAction(): AnAction? {
         val action = super.createStopOrRestartAction() ?: return null
