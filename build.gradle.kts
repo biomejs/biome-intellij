@@ -6,7 +6,7 @@ import java.io.File
 import java.security.MessageDigest
 
 val remoteRobotVersion = "0.11.21"
-val testPlatformKotlinVersion = "2.2.20"
+val testPlatformKotlinVersion = "2.4.21"
 val minimumIdeBuild = "WS-253.28294.332"
 val currentIdeVersion = providers.gradleProperty("currentIdeVersion").get()
 val currentIdeBuild = providers.gradleProperty("currentIdeBuild").get()
