@@ -8,7 +8,9 @@ import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.util.Computable
 import com.intellij.openapi.project.BaseProjectDirectories.Companion.getBaseDirectories
 import com.intellij.openapi.project.Project
@@ -69,10 +71,14 @@ private class BiomeLspServerDescriptor(
     executable: String,
     private val configPath: String?,
 ) : LspServerDescriptor(project, "Biome", root) {
-    private val targetRun: BiomeTargetRun = BiomeTargetRunBuilder(project)
-        .getBuilder(executable, root.path)
-        .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
-        .build()
+    // NodeTargetRun captures its construction-time progress indicator. A cancelled
+    // discovery read must not cancel a later launch, which has its own lifecycle fence.
+    private val targetRun: BiomeTargetRun = ProgressManager.getInstance().runProcess(Computable {
+        BiomeTargetRunBuilder(project)
+            .getBuilder(executable, root.path)
+            .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
+            .build()
+    }, EmptyProgressIndicator())
 
     override fun isSupportedFile(file: VirtualFile): Boolean {
         return BiomeSettings.getInstance(project).fileSupported(file)
