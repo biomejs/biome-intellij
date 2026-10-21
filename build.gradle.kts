@@ -106,6 +106,7 @@ intellijPlatform {
     failureLevel = listOf(
       VerifyPluginTask.FailureLevel.COMPATIBILITY_PROBLEMS,
       VerifyPluginTask.FailureLevel.INVALID_PLUGIN,
+      VerifyPluginTask.FailureLevel.INTERNAL_API_USAGES,
       VerifyPluginTask.FailureLevel.MISSING_DEPENDENCIES,
       VerifyPluginTask.FailureLevel.PLUGIN_STRUCTURE_WARNINGS,
     )
@@ -137,7 +138,7 @@ intellijPlatformTesting {
       testFramework(TestFrameworkType.Platform, providers.gradleProperty("currentIdeTestFrameworkVersion").get())
       plugins {
         bundledPlugins(providers.gradleProperty("platformBundledPlugins").get().split(',') + listOf(
-          "intellij.testRunner.plugin", "intellij.structureView.plugin", "com.intellij.modules.json", "NodeJS",
+          "intellij.testRunner.plugin", "intellij.structureView.plugin", "NodeJS",
           "com.intellij.modules.jcef", "intellij.libraries.misc.plugin", "intellij.ssh.plugin",
           "intellij.bookmarks.plugin", "com.intellij.platform.images",
         ))
