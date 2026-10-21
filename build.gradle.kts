@@ -192,6 +192,16 @@ tasks.withType<Test>().configureEach {
     if (providers.gradleProperty("uiTests").isPresent) includeTags("remote-robot")
     else excludeTags("remote-robot")
   }
+  if (providers.gradleProperty("nativeWindowsTests").isPresent) {
+    filter {
+      includeTestsMatching("com.github.biomejs.intellijbiome.launcher.BiomeWindows*Test")
+      includeTestsMatching("com.github.biomejs.intellijbiome.lsp.BiomeIdeRuntimeTest")
+    }
+    maxHeapSize = "2g"
+    maxParallelForks = 1
+  } else {
+    filter.excludeTestsMatching("com.github.biomejs.intellijbiome.launcher.BiomeWindows*Test")
+  }
   // Execute tests on every invocation while preserving compilation and dependency caches.
   outputs.upToDateWhen { false }
   outputs.doNotCacheIf("Test results must come from this invocation") { true }

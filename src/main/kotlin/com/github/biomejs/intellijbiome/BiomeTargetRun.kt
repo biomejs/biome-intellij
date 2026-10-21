@@ -18,6 +18,9 @@ import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Computable
+import com.intellij.openapi.util.SystemInfoRt
+import com.intellij.openapi.util.io.FileUtil
+import com.intellij.util.PathUtilRt
 import com.intellij.util.io.BaseOutputReader
 import java.io.IOException
 import java.nio.file.Files
@@ -93,9 +96,8 @@ class BiomeTargetRunBuilder(val project: Project) {
         val hasManualExecutable = settings.configurationMode == ConfigurationMode.MANUAL &&
             settings.executablePath.isNotBlank()
         val interpreter = NodeJsInterpreterManager.getInstance(project).interpreter
-        val manualNodeLauncher = if (hasManualExecutable &&
-            supportsManualNodeTarget(executable, interpreter)) {
-            nodeLauncherPath(executable, workingDirectory)
+        val manualNodeLauncher = if (hasManualExecutable) {
+            nodeLauncherPath(executable, workingDirectory, interpreter)
         } else null
 
         val builder: ProcessCommandBuilder = if (hasManualExecutable && manualNodeLauncher == null) {
@@ -107,31 +109,75 @@ class BiomeTargetRunBuilder(val project: Project) {
             NodeProcessCommandBuilder(project, interpreter)
         }
 
-        return builder.setExecutable(manualNodeLauncher ?: executable)
+        val selectedExecutable = manualNodeLauncher ?: if (hasManualExecutable) {
+            localWindowsBatchPath(executable, workingDirectory)
+        } else executable
+        return builder.setExecutable(selectedExecutable)
             .setWorkingDirectory(workingDirectory).setCharset(Charsets.UTF_8)
     }
 }
 
-/** Keep existing UNC/WSL and foreign-interpreter dispatch until those targets are verified. */
+/** Keep explicit Node launchers on the target selected by their paths. */
 internal fun supportsManualNodeTarget(executable: String, interpreter: NodeJsInterpreter?): Boolean =
-    interpreter is NodeJsLocalInterpreter && !isUncPath(executable) &&
-        !isUncPath(interpreter.interpreterSystemIndependentPath)
+    when (interpreter) {
+        is NodeJsLocalInterpreter -> !isUncPath(executable) &&
+            !isUncPath(interpreter.interpreterSystemIndependentPath)
+        is WslNodeInterpreter -> wslDistributionId(executable)
+            ?.equals(interpreter.wslDistributionId, ignoreCase = true) == true
+        else -> false
+    }
+
+/** Read the distribution without invoking the platform parser, which is disabled on other hosts. */
+private fun wslDistributionId(path: String): String? {
+    val normalized = FileUtil.toSystemIndependentName(path)
+    if (!PathUtilRt.startsWithSeparatorSeparator(normalized)) return null
+    val parts = normalized.removePrefix("//").split('/', limit = 3)
+    if (parts.size != 3 || parts[1].isEmpty() || parts[2].isEmpty()) return null
+    return parts[1].takeIf {
+        parts[0].equals("wsl$", ignoreCase = true) || parts[0].equals("wsl.localhost", ignoreCase = true)
+    }
+}
 
 // WslPath's parser is host-gated; a lexical UNC guard must not depend on the IDE's host OS.
-private fun isUncPath(path: String): Boolean = path.replace('\\', '/').startsWith("//")
+private fun isUncPath(path: String): Boolean =
+    PathUtilRt.startsWithSeparatorSeparator(FileUtil.toSystemIndependentName(path))
 
-/** Resolve explicit local paths against the command directory; bare names retain PATH lookup. */
-private fun nodeLauncherPath(executable: String, workingDirectory: String?): String? {
+/** Windows resolves batch executables before applying the child's working directory. */
+private fun localWindowsBatchPath(executable: String, workingDirectory: String?): String {
+    if (!SystemInfoRt.isWindows || workingDirectory == null ||
+        isUncPath(executable) || isUncPath(workingDirectory) ||
+        !(executable.endsWith(".cmd", ignoreCase = true) || executable.endsWith(".bat", ignoreCase = true))) {
+        return executable
+    }
+    return try {
+        val selected = Path(executable)
+        val directory = Path(workingDirectory)
+        // Bare names retain PATH lookup; absolute and drive-relative selections retain their meaning.
+        if (selected.parent == null || selected.root != null || !directory.isAbsolute) executable
+        else directory.resolve(selected).toString()
+    } catch (_: InvalidPathException) {
+        executable
+    }
+}
+
+/** Resolve explicit paths against the command directory; bare names retain PATH lookup. */
+private fun nodeLauncherPath(
+    executable: String,
+    workingDirectory: String?,
+    interpreter: NodeJsInterpreter?,
+): String? {
+    // Preserve the UNC boundary before a non-Windows Path can normalize its leading separators.
+    if (isUncPath(executable) && interpreter !is WslNodeInterpreter) return null
     val path = try {
         val selected = Path(executable)
         if (!selected.isAbsolute && selected.parent == null) return null
-        // Preserve the UNC boundary before Path can normalize its leading separators.
-        if (!selected.isAbsolute && workingDirectory != null && isUncPath(workingDirectory)) return null
+        if (!selected.isAbsolute && workingDirectory != null && isUncPath(workingDirectory) &&
+            interpreter !is WslNodeInterpreter) return null
         (workingDirectory?.let { Path(it).resolve(selected) } ?: selected).toAbsolutePath()
     } catch (_: InvalidPathException) {
         return null
     }
-    return path.toString().takeIf(::hasNodeShebang)
+    return path.toString().takeIf { supportsManualNodeTarget(it, interpreter) && hasNodeShebang(it) }
 }
 
 /** Follow npm bin symlinks, but keep native files and wrappers with their own setup running directly. */
