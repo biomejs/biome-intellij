@@ -52,7 +52,8 @@ class BiomePackage(private val project: Project) {
         return when (configurationMode) {
             ConfigurationMode.DISABLED -> null
             ConfigurationMode.AUTOMATIC -> findBiomeExecutable(virtualFile)
-            ConfigurationMode.MANUAL -> settings.executablePath
+            ConfigurationMode.MANUAL -> settings.executablePath.takeUnless { it.isBlank() }
+                ?: findBiomeExecutable(virtualFile)
         }
     }
 

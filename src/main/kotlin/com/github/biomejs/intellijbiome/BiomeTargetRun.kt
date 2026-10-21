@@ -90,15 +90,15 @@ class BiomeTargetRunBuilder(val project: Project) {
         }
 
         val settings = BiomeSettings.getInstance(project)
-        val configurationMode = settings.configurationMode
+        val hasManualExecutable = settings.configurationMode == ConfigurationMode.MANUAL &&
+            settings.executablePath.isNotBlank()
         val interpreter = NodeJsInterpreterManager.getInstance(project).interpreter
-        val manualNodeLauncher = if (configurationMode == ConfigurationMode.MANUAL &&
+        val manualNodeLauncher = if (hasManualExecutable &&
             supportsManualNodeTarget(executable, interpreter)) {
             nodeLauncherPath(executable, workingDirectory)
         } else null
 
-        val builder: ProcessCommandBuilder = if (configurationMode == ConfigurationMode.MANUAL &&
-            manualNodeLauncher == null) {
+        val builder: ProcessCommandBuilder = if (hasManualExecutable && manualNodeLauncher == null) {
             GeneralProcessCommandBuilder()
         } else {
             if (interpreter !is NodeJsLocalInterpreter && interpreter !is WslNodeInterpreter) {
