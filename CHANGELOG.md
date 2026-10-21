@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.11.1 - 2026-10-21
+
+### Documentation
+
+- Record the 1.11.0 release changes. Plugin behavior is unchanged from 1.11.0.
+
 ## 1.11.0 - 2026-10-21
 
 Requires IntelliJ IDEA Ultimate or WebStorm 2025.3 or newer.
