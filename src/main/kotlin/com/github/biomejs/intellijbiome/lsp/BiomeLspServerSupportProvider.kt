@@ -1,6 +1,7 @@
 package com.github.biomejs.intellijbiome.lsp
 
 import com.github.biomejs.intellijbiome.*
+import com.intellij.openapi.util.text.HtmlChunk
 import com.intellij.openapi.util.text.StringUtil
 import com.github.biomejs.intellijbiome.extensions.findNearestBiomeConfig
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
@@ -33,6 +34,8 @@ import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.Diagnostic
 import java.io.IOException
+import java.net.URI
+import java.net.URISyntaxException
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
@@ -251,9 +254,34 @@ internal class BiomeLspServerDescriptor(
                 return "Biome: ${super.getMessage(diagnostic)}" + (code?.let { " ($it)" } ?: "")
             }
 
-            override fun getTooltip(diagnostic: Diagnostic) =
-                StringUtil.escapeXmlEntities(getMessage(diagnostic))
-                    .replace("\r\n", "\n").replace('\r', '\n').replace("\n", "<br>")
+            override fun getTooltip(diagnostic: Diagnostic): String {
+                val code = diagnostic.code?.let { it.left ?: it.right?.toString() }
+                val href = documentationLink(diagnostic)
+                val tooltip = if (code != null && href != null) {
+                    HtmlChunk.fragment(
+                        HtmlChunk.text(StringUtil.convertLineSeparators("Biome: ${super.getMessage(diagnostic)} (")),
+                        HtmlChunk.link(href, StringUtil.convertLineSeparators(code)),
+                        HtmlChunk.text(")"),
+                    ).toString()
+                } else {
+                    StringUtil.escapeXmlEntities(getMessage(diagnostic))
+                }
+                return tooltip.replace("\r\n", "\n").replace('\r', '\n').replace("\n", "<br>").replace("<br/>", "<br>")
+            }
+
+            private fun documentationLink(diagnostic: Diagnostic): String? {
+                val href = diagnostic.codeDescription?.href ?: return null
+                if (href.any { it.isISOControl() }) return null
+                val uri = try {
+                    URI(href)
+                } catch (_: URISyntaxException) {
+                    return null
+                }
+                return href.takeIf {
+                    (uri.scheme.equals("https", ignoreCase = true) || uri.scheme.equals("http", ignoreCase = true)) &&
+                        !uri.host.isNullOrEmpty() && uri.rawUserInfo == null
+                }
+            }
         }
     }
 
