@@ -2,9 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 1.11.1 - 2026-10-21
 
-- Added support for Markdown, YAML, SCSS, and `.gs` files.
+### Documentation
+
+- Record the 1.11.0 release changes. Plugin behavior is unchanged from 1.11.0.
+
+## 1.11.0 - 2026-10-21
+
+Requires IntelliJ IDEA Ultimate or WebStorm 2025.3 or newer.
+
+### Bug fixes
+
+- Don't restart the language server when applying settings for the default project ([#240](https://github.com/biomejs/biome-intellij/pull/240))
+- Keep the configuration file path in the settings ([#241](https://github.com/biomejs/biome-intellij/pull/241))
+- Isolate save requests and reject stale edits ([#248](https://github.com/biomejs/biome-intellij/pull/248))
+- Report manual action outcomes and reject late edits ([#249](https://github.com/biomejs/biome-intellij/pull/249))
+- Run Biome through the platform save lifecycle ([#251](https://github.com/biomejs/biome-intellij/pull/251))
+- Render diagnostic codes and tooltip text safely ([#260](https://github.com/biomejs/biome-intellij/pull/260))
+- Close config streams and preserve cancellation ([#262](https://github.com/biomejs/biome-intellij/pull/262))
+- Skip Biome startup for ineligible files ([#263](https://github.com/biomejs/biome-intellij/pull/263))
+- Use the configured Node interpreter for manual launchers ([#264](https://github.com/biomejs/biome-intellij/pull/264))
+- Update dependency com.google.code.gson:gson to v2.14.0 ([#299](https://github.com/biomejs/biome-intellij/pull/299))
+
+### Features
+
+- Remove the version indicator on Actions on Save page ([#221](https://github.com/biomejs/biome-intellij/pull/221))
+- Add `.scss`, `.gs`, `.htm`, `.svg`, `.md`, `.markdown`, `.yml`, and `.yaml` to the default extension list ([#239](https://github.com/biomejs/biome-intellij/pull/239)). Available features depend on the installed Biome version. Existing saved extension lists are preserved; use Reset to Defaults in Biome settings to adopt the new list.
 
 ## 1.10.1
 
