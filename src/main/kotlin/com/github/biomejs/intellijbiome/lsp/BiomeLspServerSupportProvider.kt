@@ -20,7 +20,10 @@ import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerDescriptor
 import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.LspServerSupportProvider
+import com.intellij.platform.lsp.api.customization.LspCompletionDisabled
+import com.intellij.platform.lsp.api.customization.LspCustomization
 import com.intellij.platform.lsp.api.customization.LspDiagnosticsSupport
+import com.intellij.platform.lsp.api.customization.LspGoToDefinitionDisabled
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import org.eclipse.lsp4j.ClientCapabilities
@@ -153,29 +156,31 @@ private class BiomeLspServerDescriptor(
     override fun findLocalFileByPath(path: String): VirtualFile? =
         super.findLocalFileByPath(targetRun.toLocalPath(path))
 
-    override val lspGoToDefinitionSupport = false
-    override val lspCompletionSupport = null
+    override val lspCustomization = object : LspCustomization() {
+        override val goToDefinitionCustomizer = LspGoToDefinitionDisabled
+        override val completionCustomizer = LspCompletionDisabled
 
-    override val lspFormattingSupport = object : LspFormattingSupport() {
-        override fun shouldFormatThisFileExclusivelyByServer(
-            file: VirtualFile,
-            ideCanFormatThisFileItself: Boolean,
-            serverExplicitlyWantsToFormatThisFile: Boolean,
-        ): Boolean {
-            val settings = BiomeSettings.getInstance(project)
-            return settings.enableLspFormat
-        }
-    }
-
-    override val lspDiagnosticsSupport = object : LspDiagnosticsSupport() {
-        override fun getMessage(diagnostic: Diagnostic): String {
-            val code = diagnostic.code?.let { it.left ?: it.right?.toString() }
-            return "Biome: ${super.getMessage(diagnostic)}" + (code?.let { " ($it)" } ?: "")
+        override val formattingCustomizer = object : LspFormattingSupport() {
+            override fun shouldFormatThisFileExclusivelyByServer(
+                file: VirtualFile,
+                ideCanFormatThisFileItself: Boolean,
+                serverExplicitlyWantsToFormatThisFile: Boolean,
+            ): Boolean {
+                val settings = BiomeSettings.getInstance(project)
+                return settings.enableLspFormat
+            }
         }
 
-        override fun getTooltip(diagnostic: Diagnostic) =
-            StringUtil.escapeXmlEntities(getMessage(diagnostic))
-                .replace("\r\n", "\n").replace('\r', '\n').replace("\n", "<br>")
+        override val diagnosticsCustomizer = object : LspDiagnosticsSupport() {
+            override fun getMessage(diagnostic: Diagnostic): String {
+                val code = diagnostic.code?.let { it.left ?: it.right?.toString() }
+                return "Biome: ${super.getMessage(diagnostic)}" + (code?.let { " ($it)" } ?: "")
+            }
+
+            override fun getTooltip(diagnostic: Diagnostic) =
+                StringUtil.escapeXmlEntities(getMessage(diagnostic))
+                    .replace("\r\n", "\n").replace('\r', '\n').replace("\n", "<br>")
+        }
     }
 
     override val clientCapabilities: ClientCapabilities

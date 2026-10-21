@@ -6,8 +6,8 @@ import java.io.File
 import java.security.MessageDigest
 
 val remoteRobotVersion = "0.11.21"
-val testPlatformKotlinVersion = "2.2.20"
-val minimumIdeBuild = "WS-253.28294.332"
+val testPlatformKotlinVersion = "2.3.20-RC2"
+val minimumIdeBuild = "WS-261.24374.125"
 val currentIdeVersion = providers.gradleProperty("currentIdeVersion").get()
 val currentIdeBuild = providers.gradleProperty("currentIdeBuild").get()
 
@@ -72,7 +72,8 @@ dependencies {
     // Plugin Dependencies. Uses `platformPlugins` property from the gradle.properties file for plugin from JetBrains Marketplace.
     plugins(providers.gradleProperty("platformPlugins").map { it.split(',') })
 
-    testFramework(TestFrameworkType.Platform)
+    // WebStorm's product build is not published as a platform test-framework artifact.
+    testFramework(TestFrameworkType.Platform, providers.gradleProperty("minimumIdeTestFrameworkVersion").get())
     pluginVerifier()
   }
 }
@@ -119,7 +120,7 @@ intellijPlatform {
 tasks {
   test {
     systemProperty("biome.test.expected.build", minimumIdeBuild)
-    systemProperty("biome.test.expected.kotlin", testPlatformKotlinVersion)
+    systemProperty("biome.test.expected.kotlin", testPlatformKotlinVersion.substringBefore('-'))
   }
   wrapper {
     gradleVersion = providers.gradleProperty("gradleVersion").get()

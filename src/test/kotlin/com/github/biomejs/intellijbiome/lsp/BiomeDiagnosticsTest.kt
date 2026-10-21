@@ -25,7 +25,7 @@ class BiomeDiagnosticsTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Mod
                 capturedDescriptor = descriptor
             }
         })
-        checkNotNull(capturedDescriptor) { "The public provider did not supply a descriptor" }.lspDiagnosticsSupport
+        checkNotNull(capturedDescriptor) { "The public provider did not supply a descriptor" }.lspCustomization.diagnosticsCustomizer as LspDiagnosticsSupport
     }
 
     fun testAbsentCodeRendersWithoutSuffix() {
