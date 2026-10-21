@@ -1,28 +1,31 @@
 package com.github.biomejs.intellijbiome.lsp
 
 import com.github.biomejs.intellijbiome.*
+import com.intellij.openapi.util.text.StringUtil
 import com.github.biomejs.intellijbiome.extensions.findNearestBiomeConfig
 import com.github.biomejs.intellijbiome.settings.BiomeConfigurable
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.util.Computable
 import com.intellij.openapi.project.BaseProjectDirectories.Companion.getBaseDirectories
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerDescriptor
+import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.customization.LspDiagnosticsSupport
-import com.intellij.openapi.util.text.StringUtil
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
-import kotlin.io.path.Path
-import kotlin.io.path.isRegularFile
-import kotlinx.coroutines.runBlocking
 import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.Diagnostic
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 
 class BiomeLspServerSupportProvider : LspServerSupportProvider {
@@ -50,11 +53,9 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
             projectRootDir
         }
 
-        // Finds the Biome executable and check the version using CLI.
-        val executable = biome.binaryPath(root.path, file, false) ?: return
-        val version = runBlocking { biome.versionNumber() }
-
-        serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, root, executable, version, configPath))
+        // Select the executable before SDK startup.
+        val executable = biome.binaryPath(file) ?: return
+        serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, root, executable, configPath))
     }
 
     override fun createLspServerWidgetItem(lspServer: LspServer,
@@ -66,26 +67,12 @@ private class BiomeLspServerDescriptor(
     project: Project,
     root: VirtualFile,
     executable: String,
-    version: String?,
     private val configPath: String?,
 ) : LspServerDescriptor(project, "Biome", root) {
-    private val targetRun: BiomeTargetRun = run {
-        var builder = BiomeTargetRunBuilder(project)
-            .getBuilder(executable)
-            .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
-
-        // Backward compatibility for v1; `--config-path` is no longer available in v2.
-        // Older v1 releases only accept the directory containing the configuration file.
-        if (version != null && version.startsWith("1.") && !configPath.isNullOrEmpty()) {
-            val path = Path(configPath)
-            builder = builder.addParameters(listOf(
-                ProcessCommandParameter.Value("--config-path"),
-                ProcessCommandParameter.FilePath(if (path.isRegularFile()) path.parent else path)
-            ))
-        }
-
-        builder.build()
-    }
+    private val targetRun: BiomeTargetRun = BiomeTargetRunBuilder(project)
+        .getBuilder(executable, root.path)
+        .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
+        .build()
 
     override fun isSupportedFile(file: VirtualFile): Boolean {
         return BiomeSettings.getInstance(project).fileSupported(file)
@@ -108,8 +95,41 @@ private class BiomeLspServerDescriptor(
         throw RuntimeException("Not expected to be called because startServerProcess() is overridden")
     }
 
-    override fun startServerProcess(): OSProcessHandler =
-        targetRun.startProcess()
+    override fun startServerProcess(): OSProcessHandler {
+        val handler = targetRun.startProcess()
+        var handedOff = false
+        try {
+            // Startup is queued before the SDK publishes the server in its write action.
+            // Wait for that publication, then reject a process created after its server stopped.
+            val active = ApplicationManager.getApplication().runReadAction(Computable {
+                !project.isDisposed && LspServerManager.getInstance(project)
+                    .getServersForProvider(BiomeLspServerSupportProvider::class.java)
+                    .any { it.descriptor === this }
+            })
+            if (!active) throw ProcessCanceledException()
+            handedOff = true
+            return handler
+        } finally {
+            if (!handedOff) {
+                if (!handler.isStartNotified) handler.startNotify()
+                // This proxy never reached the SDK. EOF avoids killing its shared daemon.
+                try {
+                    handler.processInput.close()
+                } catch (_: IOException) {
+                    // The process may have already exited.
+                }
+                try {
+                    if (!handler.process.waitFor(1_000, TimeUnit.MILLISECONDS)) {
+                        handler.process.destroyForcibly()
+                        handler.process.waitFor(1_000, TimeUnit.MILLISECONDS)
+                    }
+                } catch (_: InterruptedException) {
+                    handler.process.destroyForcibly()
+                    Thread.currentThread().interrupt()
+                }
+            }
+        }
+    }
 
     override fun getFilePath(file: VirtualFile): String =
         targetRun.toTargetPath(file.path)
