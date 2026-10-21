@@ -96,6 +96,61 @@ class BiomeNestedRootsLspTest : BiomeLspFixtureTestCase() {
         verifyWidgetRestart(parentFile)
     }
 
+    fun testIndependentConfigCreationWaitsForExplicitRestart() {
+        val config = childFile.parent.toNioPath().resolve("biome.json")
+        Files.delete(config)
+        VfsUtil.markDirtyAndRefresh(false, true, true, childFile.parent)
+        myFixture.configureFromExistingVirtualFile(parentFile)
+        waitUntilFileOpenedByLspServer(project, parentFile, timeout = 20)
+        awaitFirstServerReadiness(parentFile)
+        myFixture.configureFromExistingVirtualFile(childFile)
+        waitUntilFileOpenedByLspServer(project, childFile, timeout = 20)
+        events.awaitDiagnostics(childFile)
+        val original = servers().single()
+        assertEquals(listOf(parentFile.parent), original.descriptor.roots.toList())
+        val editors = FileEditorManager.getInstance(project).getEditors(childFile).toList()
+        val document = FileDocumentManager.getInstance().getDocument(childFile)!!
+
+        Files.writeString(config, """{"root":true,"javascript":{"formatter":{"quoteStyle":"single"}}}""")
+        VfsUtil.markDirtyAndRefresh(false, true, true, childFile.parent)
+        settleLifecycle()
+        assertEquals("Config creation must not replace existing workspace servers", listOf(original), servers().toList())
+        formatExistingDocumentAndAssert(parentFile, "const message = \"parent\";\n")
+        project.service<BiomeServerService>().restartBiomeServer()
+
+        PlatformTestUtil.waitWithEventsDispatching("Explicit Restart did not acquire the independent child", {
+            servers().any { server -> server.descriptor.roots.toList() == listOf(childFile.parent) &&
+                opened.any { it.first === server && it.second == childFile } }
+        }, 20)
+        val child = servers().single { it.descriptor.roots.toList() == listOf(childFile.parent) }
+        events.awaitDiagnostics(childFile, child)
+        val parent = servers().single { it.descriptor.roots.toList() == listOf(parentFile.parent) }
+        events.awaitDiagnostics(parentFile, parent)
+        assertIndependentOwners(servers())
+        formatExistingDocumentAndAssert(childFile, "const message = 'child';\n")
+        assertEquals(editors, FileEditorManager.getInstance(project).getEditors(childFile).toList())
+        assertSame(document, FileDocumentManager.getInstance().getDocument(childFile))
+    }
+
+    fun testMalformedChildRepairRetainsExistingEditorAndOwners() {
+        exercise(parentFirst = true)
+        val originals = servers().toList()
+        val editors = FileEditorManager.getInstance(project).getEditors(childFile).toList()
+        val config = childFile.parent.toNioPath().resolve("biome.json")
+        val valid = Files.readString(config)
+        Files.writeString(config, "{broken")
+        VfsUtil.markDirtyAndRefresh(false, true, true, childFile.parent)
+        settleLifecycle()
+        assertEquals("A temporary parse error must retain the established owners", originals, servers().toList())
+        resetChildDocument()
+        Files.writeString(config, valid)
+        VfsUtil.markDirtyAndRefresh(false, true, true, childFile.parent)
+        settleLifecycle()
+        assertEquals(originals, servers().toList())
+        formatExistingDocumentAndAssert(childFile, "const message = 'child';\n")
+        assertEquals(editors, FileEditorManager.getInstance(project).getEditors(childFile).toList())
+    }
+
     fun testParentWidgetRestartDoesNotReviveDeliberatelyStoppedChild() {
         exercise(parentFirst = true)
         val originals = servers().toList()
@@ -194,12 +249,19 @@ class BiomeNestedRootsLspTest : BiomeLspFixtureTestCase() {
             servers().any { parentFile.parent in it.descriptor.roots })
     }
 
-    fun testReopeningChildDoesNotResumeStoppedParentDuringChildRestart() {
+    fun testReopeningChildDoesNotResumeStoppedParentDuringChildRestart() = verifyReopeningStoppedChild(globalStop = false)
+
+    fun testReopeningChildAfterGlobalStopKeepsParentStopped() = verifyReopeningStoppedChild(globalStop = true)
+
+    private fun verifyReopeningStoppedChild(globalStop: Boolean) {
         exercise(parentFirst = true)
         val parent = servers().single { it.descriptor.roots.toList() == listOf(parentFile.parent) }
         val child = servers().single { it.descriptor.roots.toList() == listOf(childFile.parent) }
-        invokeWidgetLifecycleAction(child, parentFile, LanguageServicePopupSection.Other)
-        invokeWidgetLifecycleAction(parent, childFile, LanguageServicePopupSection.Other)
+        if (globalStop) project.service<BiomeServerService>().stopBiomeServer()
+        else {
+            invokeWidgetLifecycleAction(child, parentFile, LanguageServicePopupSection.Other)
+            invokeWidgetLifecycleAction(parent, childFile, LanguageServicePopupSection.Other)
+        }
         PlatformTestUtil.waitWithEventsDispatching("Both selected roots must stop", { servers().isEmpty() }, 20)
         saveAndReopenChildEditor()
         PlatformTestUtil.waitWithEventsDispatching("Reopening the child did not resume its own workspace", {

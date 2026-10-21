@@ -43,13 +43,14 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         serverStarter: LspServerSupportProvider.LspServerStarter,
     ) {
         if (project.isDisposed) return
-        // Consume real-open intent even when current settings reject this callback.
-        // Looking up an existing service preserves the early startup eligibility gate.
-        val reopenRequest = project.getServiceIfCreated(BiomeLspLifecycleService::class.java)?.takeEditorOpen(file)
         val settings = BiomeSettings.getInstance(project)
-        if (!settings.isEnabled() || !settings.fileSupported(file)) return
+        if (!settings.isEnabled() || !settings.fileSupported(file)) {
+            // Ineligible callbacks must not leave real-open intent for a later synthetic scan.
+            project.getServiceIfCreated(BiomeLspLifecycleService::class.java)?.takeEditorOpen(file)
+            return
+        }
         val lifecycle = project.service<BiomeLspLifecycleService>()
-        discoverFile(project, file, serverStarter, lifecycle.requestStamp(), reopenRequest = reopenRequest)
+        discoverFile(project, file, serverStarter, lifecycle.requestStamp(), consumeOpenRequest = true)
     }
 
     internal fun discoverFile(
@@ -57,7 +58,7 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         file: VirtualFile,
         serverStarter: LspServerSupportProvider.LspServerStarter,
         requestStamp: Long,
-        reopenRequest: Long? = null,
+        consumeOpenRequest: Boolean = false,
     ) {
         if (project.isDisposed) return
         val lifecycle = project.service<BiomeLspLifecycleService>()
@@ -72,6 +73,10 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
             .getBaseDirectories()
             .find { VfsUtil.isUnder(file, setOf(it)) } ?: return
 
+        if (settings.usesConfigDiscovery()) {
+            project.service<BiomeConfigDiscoveryService>()
+        }
+
         val root = if (configPath.isNullOrEmpty()) {
             file.findNearestBiomeConfig(projectRootDir)?.parent ?: return
         } else {
@@ -79,7 +84,8 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
             projectRootDir
         }
 
-        if (reopenRequest != null) lifecycle.resume(root, reopenRequest)
+        // Keep the original stamped intent while project roots or configuration are unavailable.
+        if (consumeOpenRequest) lifecycle.takeEditorOpen(file)?.let { lifecycle.resume(root, it) }
         if (!lifecycle.permits(root, requestStamp) || lifecycle.isStopped(root)) return
 
         // Select the executable before SDK startup.
