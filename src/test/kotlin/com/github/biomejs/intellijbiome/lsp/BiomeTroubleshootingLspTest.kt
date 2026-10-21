@@ -45,6 +45,8 @@ class BiomeTroubleshootingLspTest : BiomeLspFixtureTestCase() {
         FileEditorManager.getInstance(project).openFile(first, false)
         FileEditorManager.getInstance(project).openFile(second, false)
         val manager = LspServerManager.getInstance(project)
+        // Establish running-workspace preconditions for this RPC test; automatic file-open batching is SDK-owned.
+        manager.startServersIfNeeded(BiomeLspServerSupportProvider::class.java)
         fun servers() = manager.getServersForProvider(BiomeLspServerSupportProvider::class.java).toList()
         PlatformTestUtil.waitWithEventsDispatching("Two real Biome servers did not initialize", {
             servers().size == 2 && servers().all {
