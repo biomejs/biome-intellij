@@ -36,6 +36,7 @@ class BiomeConfigurable(internal val project: Project) :
     BoundSearchableConfigurable(BiomeBundle.message("biome.settings.name"), HELP_TOPIC, CONFIGURABLE_ID) {
     lateinit var runFormatOnSaveCheckBox: JCheckBox
     lateinit var enableLspFormatCheckBox: JCheckBox
+    lateinit var formatOnTypeCheckBox: JCheckBox
     lateinit var runSafeFixesOnSaveCheckBox: JCheckBox
     lateinit var sortImportOnSaveCheckBox: JCheckBox
 
@@ -159,6 +160,16 @@ class BiomeConfigurable(internal val project: Project) :
 
                 val link = ActionsOnSaveConfigurable.createGoToActionsOnSavePageLink()
                 cell(link)
+            }.enabledIf(!disabledConfiguration.selected)
+
+            // *********************
+            // Formatting while typing row
+            // *********************
+            row {
+                formatOnTypeCheckBox = checkBox(BiomeBundle.message("biome.format.on.type.label")).bindSelected(
+                    { settings.state.formatOnType },
+                    { settings.formatOnType = it },
+                ).component
             }.enabledIf(!disabledConfiguration.selected)
 
             // *********************

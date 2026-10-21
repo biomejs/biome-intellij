@@ -32,6 +32,9 @@ import com.intellij.platform.lsp.api.customization.LspCustomization
 import com.intellij.platform.lsp.api.customization.LspDiagnosticsSupport
 import com.intellij.platform.lsp.api.customization.LspGoToDefinitionDisabled
 import com.intellij.platform.lsp.api.customization.LspFormattingSupport
+import com.intellij.platform.lsp.api.customization.LspOnTypeFormattingCustomizer
+import com.intellij.platform.lsp.api.customization.LspOnTypeFormattingDisabled
+import com.intellij.platform.lsp.api.customization.LspOnTypeFormattingSupport
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.ConfigurationItem
@@ -267,6 +270,9 @@ internal class BiomeLspServerDescriptor(
     override val lspCustomization = object : LspCustomization() {
         override val goToDefinitionCustomizer = LspGoToDefinitionDisabled
         override val completionCustomizer = LspCompletionDisabled
+        override val onTypeFormattingCustomizer: LspOnTypeFormattingCustomizer
+            get() = if (BiomeSettings.getInstance(project).formatOnType) LspOnTypeFormattingSupport()
+                else LspOnTypeFormattingDisabled
 
         override val formattingCustomizer = object : LspFormattingSupport() {
             override fun shouldFormatThisFileExclusivelyByServer(
