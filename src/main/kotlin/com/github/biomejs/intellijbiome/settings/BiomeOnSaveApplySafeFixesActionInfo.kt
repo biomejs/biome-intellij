@@ -19,7 +19,7 @@ class BiomeOnSaveApplySafeFixesActionInfo(actionOnSaveContext: ActionOnSaveConte
     override fun isApplicableAccordingToUiState(configurable: BiomeConfigurable): Boolean =
         !configurable.disabledConfiguration.isSelected
 
-    override fun isActionOnSaveEnabledAccordingToStoredState() = BiomeSettings.getInstance(project).applySafeFixesOnSave
+    override fun isActionOnSaveEnabledAccordingToStoredState() = BiomeSettings.getInstance(project).state.applySafeFixesOnSave
 
     override fun isActionOnSaveEnabledAccordingToUiState(configurable: BiomeConfigurable) =
         configurable.runSafeFixesOnSaveCheckBox.isSelected

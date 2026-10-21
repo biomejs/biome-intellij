@@ -18,7 +18,7 @@ class BiomeOnSaveFormatActionInfo(actionOnSaveContext: ActionOnSaveContext) :
     override fun isApplicableAccordingToStoredState(): Boolean =
         BiomeSettings.getInstance(project).configurationMode != ConfigurationMode.DISABLED
 
-    override fun isActionOnSaveEnabledAccordingToStoredState() = BiomeSettings.getInstance(project).formatOnSave
+    override fun isActionOnSaveEnabledAccordingToStoredState() = BiomeSettings.getInstance(project).state.formatOnSave
 
     override fun isApplicableAccordingToUiState(configurable: BiomeConfigurable): Boolean =
         !configurable.disabledConfiguration.isSelected

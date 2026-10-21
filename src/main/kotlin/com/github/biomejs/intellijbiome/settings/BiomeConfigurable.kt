@@ -23,7 +23,6 @@ import com.intellij.ui.layout.not
 import com.intellij.ui.layout.selected
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
-import java.awt.event.ItemEvent
 import javax.swing.JCheckBox
 import javax.swing.JRadioButton
 import javax.swing.event.HyperlinkEvent
@@ -56,16 +55,7 @@ class BiomeConfigurable(internal val project: Project) :
                     disabledConfiguration =
                         radioButton(JavaScriptBundle.message("settings.javascript.linters.autodetect.disabled",
                             displayName)).bindSelected(ConfigurationModeProperty(settings,
-                            ConfigurationMode.DISABLED)).component.apply {
-                            addItemListener { e ->
-                                if (e.stateChange == ItemEvent.SELECTED) {
-                                    runFormatOnSaveCheckBox.isSelected = false
-                                    enableLspFormatCheckBox.isSelected = false
-                                    runSafeFixesOnSaveCheckBox.isSelected = false
-                                    sortImportOnSaveCheckBox.isSelected = false
-                                }
-                            }
-                        }
+                            ConfigurationMode.DISABLED)).component
                 }
                 row {
                     automaticConfiguration =
@@ -145,7 +135,7 @@ class BiomeConfigurable(internal val project: Project) :
             // *********************
             row {
                 enableLspFormatCheckBox = checkBox(BiomeBundle.message("biome.enable.lsp.format.label")).bindSelected(
-                    { settings.configurationMode != ConfigurationMode.DISABLED && settings.enableLspFormat },
+                    { settings.state.enableLspFormat },
                     { settings.enableLspFormat = it },
                 ).component
 
@@ -162,7 +152,7 @@ class BiomeConfigurable(internal val project: Project) :
             // *********************
             row {
                 runFormatOnSaveCheckBox = checkBox(BiomeBundle.message("biome.run.format.on.save.label")).bindSelected(
-                    { settings.configurationMode != ConfigurationMode.DISABLED && settings.formatOnSave },
+                    { settings.state.formatOnSave },
                     { settings.formatOnSave = it },
                 ).component
 
@@ -176,7 +166,7 @@ class BiomeConfigurable(internal val project: Project) :
             row {
                 runSafeFixesOnSaveCheckBox =
                     checkBox(BiomeBundle.message("biome.run.safe.fixes.on.save.label")).bindSelected(
-                        { settings.configurationMode != ConfigurationMode.DISABLED && settings.applySafeFixesOnSave },
+                        { settings.state.applySafeFixesOnSave },
                         { settings.applySafeFixesOnSave = it },
                     ).component
 
@@ -191,7 +181,7 @@ class BiomeConfigurable(internal val project: Project) :
             row {
                 sortImportOnSaveCheckBox =
                     checkBox(BiomeBundle.message("biome.sort.import.on.save.label")).bindSelected(
-                        { settings.configurationMode != ConfigurationMode.DISABLED && settings.sortImportOnSave },
+                        { settings.state.sortImportOnSave },
                         { settings.sortImportOnSave = it },
                     ).component
 
