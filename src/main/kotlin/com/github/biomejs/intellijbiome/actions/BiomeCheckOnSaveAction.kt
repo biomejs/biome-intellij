@@ -35,9 +35,14 @@ class BiomeCheckOnSaveAction internal constructor(
             else file.presentableUrl to features
         } ?: return
         val (fileName, features) = snapshot
-        when (val outcome = runBiomeSaveOperation { execute(project, document, features) }) {
+        val timeoutMs = biomeActionTimeoutMs()
+        when (val outcome = runBiomeSaveOperation(timeoutMs) { execute(project, document, features) }) {
             BiomeSaveOutcome.Completed -> Unit
-            BiomeSaveOutcome.TimedOut -> LOG.warn(BiomeBundle.message("biome.save.timeout", fileName))
+            BiomeSaveOutcome.TimedOut -> LOG.warn(if (timeoutMs == DEFAULT_BIOME_ACTION_TIMEOUT_MS) {
+                BiomeBundle.message("biome.save.timeout", fileName)
+            } else {
+                BiomeBundle.message("biome.save.timeout.configured", fileName, timeoutMs)
+            })
             is BiomeSaveOutcome.Failed -> {
                 val description = BiomeBundle.message("biome.save.failure", fileName)
                 LOG.warn(description, outcome.cause)

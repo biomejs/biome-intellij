@@ -47,6 +47,9 @@
 
   <extensions defaultExtensionNs="com.intellij">
     <notificationGroup id="Biome" displayType="BALLOON"/>
+    <registryKey key="biome.actions.timeout.ms"
+                 defaultValue="5000"
+                 description="Per-file timeout in milliseconds for Biome manual and save actions. Nonpositive values use the five-second default."/>
     <platform.lsp.serverSupportProvider
       implementation="com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider"/>
     <iconProvider implementation="com.github.biomejs.intellijbiome.BiomeConfigIconProvider"/>
