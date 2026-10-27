@@ -21,8 +21,11 @@ import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.lsp.api.LspServer
+import com.intellij.platform.lsp.api.Lsp4jClient
 import com.intellij.platform.lsp.api.LspServerDescriptor
+import com.intellij.platform.lsp.api.LspServerListener
 import com.intellij.platform.lsp.api.LspServerManager
+import com.intellij.platform.lsp.api.LspServerNotificationsHandler
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.customization.LspCompletionDisabled
 import com.intellij.platform.lsp.api.customization.LspCustomization
@@ -33,6 +36,7 @@ import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.Diagnostic
+import org.eclipse.lsp4j.PublishDiagnosticsParams
 import java.io.IOException
 import java.net.URI
 import java.net.URISyntaxException
@@ -62,6 +66,7 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         file: VirtualFile,
         serverStarter: LspServerSupportProvider.LspServerStarter,
         requestStamp: Long,
+        includeNestedRoots: Boolean = true,
         consumeOpenRequest: Boolean = false,
     ) {
         if (project.isDisposed) return
@@ -95,7 +100,7 @@ class BiomeLspServerSupportProvider : LspServerSupportProvider {
         // Select the executable before SDK startup.
         val executable = biome.binaryPath(file) ?: return
         serverStarter.ensureServerStarted(BiomeLspServerDescriptor(project, root, executable, configPath, requestStamp))
-        if (!configPath.isNullOrEmpty()) return
+        if (!includeNestedRoots || !configPath.isNullOrEmpty()) return
 
         // Public Restart skips later open files below the first collected root.
         // Its callback holds one descriptor, so submit independent descendants to the manager.
@@ -232,6 +237,26 @@ internal class BiomeLspServerDescriptor(
 
     override fun findLocalFileByPath(path: String): VirtualFile? =
         super.findLocalFileByPath(targetRun.toLocalPath(path))
+
+    override fun createLsp4jClient(handler: LspServerNotificationsHandler): Lsp4jClient =
+        super.createLsp4jClient(object : LspServerNotificationsHandler by handler {
+            override fun publishDiagnostics(params: PublishDiagnosticsParams) {
+                handler.publishDiagnostics(params)
+                if (!project.isDisposed) {
+                    project.messageBus.syncPublisher(BiomeLspDocumentListener.TOPIC)
+                        .diagnosticsPublished(this@BiomeLspServerDescriptor, params)
+                }
+            }
+        })
+
+    override val lspServerListener = object : LspServerListener {
+        override fun serverStopped(shutdownNormally: Boolean) {
+            if (!project.isDisposed) {
+                project.messageBus.syncPublisher(BiomeLspDocumentListener.TOPIC)
+                    .serverStopped(this@BiomeLspServerDescriptor)
+            }
+        }
+    }
 
     override val lspCustomization = object : LspCustomization() {
         override val goToDefinitionCustomizer = LspGoToDefinitionDisabled

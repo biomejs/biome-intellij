@@ -11,7 +11,6 @@ import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.DumbAware
@@ -29,17 +28,13 @@ class BiomeApplySafeFixesAction : AnAction(), DumbAware {
 
     override fun actionPerformed(event: AnActionEvent) {
         val project = event.project ?: return
-        if (project.isDisposed) return
-        val editor = event.getData(CommonDataKeys.EDITOR) ?: return
-        if (editor.isDisposed || editor.isViewer || !editor.document.isWritable) return
+        val target = biomeManualActionTarget(event) ?: return
 
         val notificationGroup = NotificationGroupManager.getInstance().getNotificationGroup("Biome")
 
         val settings = BiomeSettings.getInstance(project)
         if (!settings.isEnabled()) return
-        val manager = FileDocumentManager.getInstance()
-        val virtualFile = manager.getFile(editor.document) ?: return
-        if (!virtualFile.isValid || virtualFile.isDirectory) return
+        val virtualFile = target.file
 
         if (!settings.fileSupported(virtualFile)) {
             notificationGroup.createNotification(title = BiomeBundle.message("biome.file.not.supported.title"),
@@ -51,6 +46,9 @@ class BiomeApplySafeFixesAction : AnAction(), DumbAware {
             return
         }
 
-        runBiomeManualAction(project, editor.document, virtualFile, Feature.ApplySafeFixes, "biome.apply.safe.fixes")
+        val document = target.editor?.document ?: FileDocumentManager.getInstance().getDocument(virtualFile) ?: return
+        if (!document.isWritable) return
+        runBiomeManualAction(project, document, virtualFile, Feature.ApplySafeFixes, "biome.apply.safe.fixes",
+            prepareSelectedFile = target.editor == null)
     }
 }
