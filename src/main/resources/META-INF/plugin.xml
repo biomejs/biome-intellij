@@ -74,6 +74,8 @@
       implementation="com.github.biomejs.intellijbiome.schema.BiomeCustomConfigSchemaProvider"/>
   </extensions>
   <actions>
+    <action id="BiomeCollectTroubleshooting"
+            class="com.github.biomejs.intellijbiome.actions.BiomeCollectTroubleshootingAction"/>
     <action id="BiomeOpenConfiguration"
             class="com.github.biomejs.intellijbiome.actions.BiomeOpenConfigurationAction">
       <add-to-group group-id="EditorPopupMenu" anchor="last"/>
