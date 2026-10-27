@@ -148,6 +148,7 @@ internal class BiomeTroubleshootingService internal constructor(
         for ((name, values) in listOf(
             "LSP formatting" to (settings.state.enableLspFormat to settings.enableLspFormat),
             "Format on save" to (settings.state.formatOnSave to settings.formatOnSave),
+            "Format while typing" to (settings.state.formatOnType to settings.formatOnType),
             "Safe fixes on save" to (settings.state.applySafeFixesOnSave to settings.applySafeFixesOnSave),
             "Sort imports on save" to (settings.state.sortImportOnSave to settings.sortImportOnSave),
         )) text.pair(name, "raw=${values.first}, effective=${values.second}")

@@ -48,6 +48,12 @@ class BiomeSettings :
             state.formatOnSave = value
         }
 
+    var formatOnType: Boolean
+        get() = isEnabled() && state.formatOnType
+        set(value) {
+            state.formatOnType = value
+        }
+
     var sortImportOnSave: Boolean
         get() = isEnabled() && state.sortImportOnSave
         set(value) {

@@ -107,11 +107,13 @@ class BiomeTroubleshootingServiceTest : BasePlatformTestCase() {
         val settings = BiomeSettings.getInstance(project)
         settings.executablePath = "/must/not/be/launched"
         settings.state.enableLspFormat = true
+        settings.state.formatOnType = true
         val report = service().localReport(null)
         assertTrue(report.text, report.text.contains("IDE:"))
         assertTrue(report.text, report.text.contains("Plugin:"))
         assertTrue(report.text, report.text.contains("/must/not/be/launched"))
         assertTrue(report.text, report.text.contains("raw=true, effective=false"))
+        assertTrue(report.text, report.text.contains("Format while typing: raw=true, effective=false"))
         assertTrue(report.text, report.text.contains("No running Biome server"))
         assertTrue(running.isEmpty())
     }

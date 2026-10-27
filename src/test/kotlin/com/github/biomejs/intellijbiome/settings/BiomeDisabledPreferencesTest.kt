@@ -21,6 +21,7 @@ class BiomeDisabledPreferencesTest : CodeInsightFixtureTestCase<ModuleFixtureBui
         super.setUp()
         settings.loadState(BiomeSettingsState().apply {
             enableLspFormat = true
+            formatOnType = true
             formatOnSave = true
             applySafeFixesOnSave = true
             sortImportOnSave = true
@@ -54,6 +55,7 @@ class BiomeDisabledPreferencesTest : CodeInsightFixtureTestCase<ModuleFixtureBui
             configurable.apply()
         }
         assertTrue(settings.enableLspFormat)
+        assertTrue(settings.formatOnType)
         assertEquals(3, settings.getEnabledFeatures().size)
     }
 
@@ -135,6 +137,7 @@ class BiomeDisabledPreferencesTest : CodeInsightFixtureTestCase<ModuleFixtureBui
 
     private fun assertDisabledRuntime() {
         assertFalse(settings.enableLspFormat)
+        assertFalse(settings.formatOnType)
         assertFalse(settings.formatOnSave)
         assertFalse(settings.applySafeFixesOnSave)
         assertFalse(settings.sortImportOnSave)
@@ -142,12 +145,13 @@ class BiomeDisabledPreferencesTest : CodeInsightFixtureTestCase<ModuleFixtureBui
     }
     private fun assertStored() {
         assertTrue(settings.state.enableLspFormat)
+        assertTrue(settings.state.formatOnType)
         assertTrue(settings.state.formatOnSave)
         assertTrue(settings.state.applySafeFixesOnSave)
         assertTrue(settings.state.sortImportOnSave)
     }
     private fun boxes(c: BiomeConfigurable) = listOf(c.enableLspFormatCheckBox, c.runFormatOnSaveCheckBox,
-        c.runSafeFixesOnSaveCheckBox, c.sortImportOnSaveCheckBox)
+        c.runSafeFixesOnSaveCheckBox, c.sortImportOnSaveCheckBox, c.formatOnTypeCheckBox)
     private fun assertSelected(c: BiomeConfigurable) = boxes(c).forEach { assertTrue("Preference must remain selected: ${it.text}", it.isSelected) }
     private fun panel(test: (BiomeConfigurable) -> Unit) {
         val configurable = BiomeConfigurable(project)
