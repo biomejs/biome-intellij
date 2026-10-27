@@ -328,11 +328,11 @@ class BiomeServerService internal constructor(
         return fileSystem !is NewVirtualFileSystem || file.timeStamp == fileSystem.getTimeStamp(file)
     }
 
-    fun notifyRestart() {
+    fun notifySettingsApplied() {
         NotificationGroupManager.getInstance()
             .getNotificationGroup("Biome")
             .createNotification(
-                BiomeBundle.message("biome.language.server.restarted"),
+                BiomeBundle.message("biome.settings.applied"),
                 "",
                 NotificationType.INFORMATION
             )
