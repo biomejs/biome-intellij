@@ -22,6 +22,7 @@ import com.intellij.ui.layout.not
 import com.intellij.ui.layout.selected
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
+import com.jetbrains.jsonSchema.ide.JsonSchemaService
 import javax.swing.JCheckBox
 import javax.swing.JRadioButton
 import javax.swing.event.HyperlinkEvent
@@ -206,6 +207,7 @@ class BiomeConfigurable(internal val project: Project) :
                 // The default project (Welcome screen / "Settings for New Projects") has no language servers to restart.
                 if (project.isDefault) return@onApply
 
+                JsonSchemaService.Impl.get(project).reset()
                 biomeServerService.restartBiomeServer()
                 biomeServerService.notifyRestart()
             }
