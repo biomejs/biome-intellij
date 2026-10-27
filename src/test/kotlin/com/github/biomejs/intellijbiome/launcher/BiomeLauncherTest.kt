@@ -32,6 +32,7 @@ class BiomeLauncherTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Module
         super.setUp()
         assertTrue("Required launcher process tests run on macOS and Linux", SystemInfoRt.isMac || SystemInfoRt.isLinux)
         BiomeSettings.getInstance(project).configurationMode = ConfigurationMode.MANUAL
+        BiomeSettings.getInstance(project).executablePath = "explicit-test-launcher"
         val configured = Path.of(myFixture.tempDirPath, "configured node with spaces")
         Files.createSymbolicLink(configured, executableOnPath("node"))
         NodeJsInterpreterManager.getInstance(project).setInterpreterRef(
