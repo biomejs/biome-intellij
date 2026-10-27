@@ -7,6 +7,7 @@ import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.CapturingProcessHandler
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.wsl.WSLDistribution
+import com.intellij.execution.wsl.getWslPathSafe
 import com.intellij.javascript.nodejs.execution.NodeTargetRun
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreter
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
@@ -74,7 +75,7 @@ sealed interface BiomeTargetRun {
                 }
             }
 
-        override fun toTargetPath(path: String) = wslDistribution?.getWslPath(Path(path)) ?: path
+        override fun toTargetPath(path: String) = wslDistribution?.getWslPathSafe(Path(path)) ?: path
         override fun toLocalPath(path: String) = wslDistribution?.getWindowsPath(path) ?: path
     }
 }
