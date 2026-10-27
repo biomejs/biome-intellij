@@ -2,12 +2,21 @@ package com.github.biomejs.intellijbiome.launcher
 
 import com.github.biomejs.intellijbiome.BiomeTargetRun
 import com.github.biomejs.intellijbiome.ProcessCommandParameter
+import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationResolution
+import com.github.biomejs.intellijbiome.configuration.BiomeConfigurationSettings
+import com.github.biomejs.intellijbiome.configuration.resolveBiomeConfigurationForTest
+import com.github.biomejs.intellijbiome.settings.BiomeSettings
+import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterRef
 import com.intellij.javascript.nodejs.interpreter.local.NodeJsLocalInterpreter
 import com.intellij.javascript.nodejs.interpreter.wsl.WslNodeInterpreter
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.io.FileUtil
+import com.intellij.openapi.roots.ModuleRootModificationUtil
+import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.openapi.vfs.VfsUtilCore
+import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
@@ -27,6 +36,8 @@ class BiomeWindowsWslLauncherTest : BiomeWindowsLauncherTestCase() {
         root = Files.createTempDirectory(Path.of("\\\\wsl.localhost\\$distribution\\tmp"), "biome launcher ")
         linuxRoot = "/tmp/${root.fileName}"
         Disposer.register(testRootDisposable) { FileUtil.delete(root.toFile()) }
+        VfsRootAccess.allowRootAccess(testRootDisposable,
+            "//wsl.localhost/$distribution$linuxRoot", "//wsl$/$distribution$linuxRoot")
         NodeJsInterpreterManager.getInstance(project).setInterpreterRef(
             NodeJsInterpreterRef.create(WslNodeInterpreter(distribution, wslNode)))
     }
@@ -117,6 +128,58 @@ class BiomeWindowsWslLauncherTest : BiomeWindowsLauncherTestCase() {
 
         assertTrue("A local native executable must remain local", run is BiomeTargetRun.General)
         assertReport(run, directory.toRealPath().toString(), emptyList(), node = windowsNode.toRealPath().toString())
+    }
+
+    fun testConfigurationNavigationResolvesWslUncAliasesAndTargetNativePaths() {
+        val config = Files.writeString(root.resolve("custom config.jsonc"), """{"marker":"${root.fileName}"}""")
+        val launcher = Files.writeString(root.resolve("selected launcher"), "#!/usr/bin/env node\n" + reportSource())
+        val source = checkNotNull(VfsUtil.findFile(Files.writeString(root.resolve("source.js"), ""), true))
+        ModuleRootModificationUtil.addContentRoot(myFixture.module, source.parent.path)
+        val interpreter = WslNodeInterpreter(distribution, wslNode)
+        val native = "//wsl.localhost/$distribution$wslNode"
+        val aliases = listOf("\\\\wsl$\\", "\\\\wsl.localhost\\").map {
+            it + distribution + "\\tmp\\" + root.fileName + "\\" + config.fileName
+        }
+        for (executable in listOf(launcher.toString(), ".\\selected launcher", native, "")) {
+            for (path in aliases + listOf("custom config.jsonc", "$linuxRoot/${config.fileName}",
+                "$linuxRoot/../${root.fileName}/${config.fileName}")) {
+                BiomeSettings.getInstance(project).apply {
+                    configPath = path
+                    executablePath = executable
+                }
+                val snapshot = BiomeConfigurationSettings.capture(project)
+                assertTrue("The resolver snapshot must retain the selected WSL interpreter", snapshot.interpreter is WslNodeInterpreter)
+                val result = resolveBiomeConfigurationForTest(project, source, snapshot)
+                assertTrue("Expected navigation for $executable / $path, got $result", result is BiomeConfigurationResolution.Found)
+                val found = result as BiomeConfigurationResolution.Found
+                assertEquals(source.parent, found.base)
+                assertEquals("""{"marker":"${root.fileName}"}""", VfsUtilCore.loadText(found.file))
+            }
+        }
+        val foreign = BiomeConfigurationSettings(ConfigurationMode.MANUAL, "custom config.jsonc",
+            "//wsl.localhost/BiomeUnavailableForeignDistribution/usr/bin/biome", interpreter)
+        assertEquals(BiomeConfigurationResolution.Unavailable(BiomeConfigurationResolution.Reason.UNRESOLVED_TARGET),
+            resolveBiomeConfigurationForTest(project, source, foreign))
+    }
+
+    fun testConfigurationNavigationMapsMountedHostFileWithoutAProcess() {
+        val config = myFixture.tempDirFixture.createFile("custom.jsonc", """{"marker":"host mount"}""")
+        val source = myFixture.tempDirFixture.createFile("source.js", "")
+        val host = config.path.replace('\\', '/')
+        assertTrue("Native Windows fixture must have a drive", host.length > 2 && host[1] == ':')
+        val targetPath = "/mnt/${host[0].lowercaseChar()}${host.substring(2)}"
+        val targetDirectory = targetPath.substringBeforeLast('/')
+        VfsRootAccess.allowRootAccess(testRootDisposable,
+            "//wsl.localhost/$distribution$targetDirectory", "//wsl$/$distribution$targetDirectory")
+        BiomeSettings.getInstance(project).apply {
+            configPath = targetPath
+            executablePath = "//wsl.localhost/$distribution$wslNode"
+        }
+        val result = resolveBiomeConfigurationForTest(project, source, BiomeConfigurationSettings.capture(project))
+        assertTrue("Mounted path must navigate through the selected distribution: $result", result is BiomeConfigurationResolution.Found)
+        val found = result as BiomeConfigurationResolution.Found
+        assertEquals(source.parent, found.base)
+        assertEquals("""{"marker":"host mount"}""", VfsUtilCore.loadText(found.file))
     }
 
     private fun makeExecutable(path: Path) {
