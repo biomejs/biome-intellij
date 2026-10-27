@@ -1,10 +1,9 @@
 # Biome - IntelliJ Plugin
 
-[![IntelliJ IDEA Ultimate Version](https://img.shields.io/badge/IntelliJ%20IDEA%20Ultimate-2024.3-374151.svg?labelcolor=000&logo=intellij-idea&labelColor=black)](https://www.jetbrains.com/idea/)
-[![WebStorm Version](https://img.shields.io/badge/WebStorm-2024.3-1F3263.svg?labelcolor=000&logo=webstorm&labelColor=black)](https://www.jetbrains.com/webstorm/)
-[![AppCode Version](https://img.shields.io/badge/AppCode-2024.3-2380B0.svg?labelcolor=000&logo=appcode&labelColor=black)](https://www.jetbrains.com/objc/)
-[![PhpStorm Version](https://img.shields.io/badge/PhpStorm-2024.3-953D8C.svg?labelcolor=000&logo=phpstorm&labelColor=black)](https://www.jetbrains.com/phpstorm/)
-[![RubyMine Version](https://img.shields.io/badge/RubyMine-2024.3-A11523.svg?labelcolor=000&logo=ruby&labelColor=black)](https://www.jetbrains.com/ruby/)
+[![IntelliJ IDEA Ultimate](https://img.shields.io/badge/IntelliJ%20IDEA%20Ultimate-374151.svg?labelcolor=000&logo=intellij-idea&labelColor=black)](https://www.jetbrains.com/idea/)
+[![WebStorm](https://img.shields.io/badge/WebStorm-1F3263.svg?labelcolor=000&logo=webstorm&labelColor=black)](https://www.jetbrains.com/webstorm/)
+[![PhpStorm](https://img.shields.io/badge/PhpStorm-953D8C.svg?labelcolor=000&logo=phpstorm&labelColor=black)](https://www.jetbrains.com/phpstorm/)
+[![RubyMine](https://img.shields.io/badge/RubyMine-A11523.svg?labelcolor=000&logo=ruby&labelColor=black)](https://www.jetbrains.com/ruby/)
 
 [Biome](https://biomejs.dev/) is a powerful tool designed to enhance your development experience.
 This plugin integrates seamlessly with many [JetBrains IDE's](#supported-ides) to provide the following capabilities.
@@ -35,7 +34,8 @@ To install the Biome IntelliJ plugin, head over to the [official plugin page](ht
 
 ## Getting Started
 
-Requires Biome 2.5.15 or later.
+Requires Biome 2.5.15 or later and IDE build **261.24374.125** or later (WebStorm **2026.1.2**). Other JetBrains products must meet the same build requirement; their release version numbers can differ.
+
 ### Biome Resolution
 
 The plugin tries to use Biome from your project’s local dependencies (`node_modules/.bin/biome`). We recommend adding Biome as a project dependency to ensure that NPM scripts and the extension use the same Biome version.
@@ -66,15 +66,13 @@ If you want to format code on save, navigate to **Actions on Save** settings and
 
 This plugin is currently supported in the following IDEs:
 
-- [![IntelliJ IDEA Ultimate Version](https://img.shields.io/badge/IntelliJ%20IDEA%20Ultimate-2024.3-374151.svg?labelcolor=000&logo=intellij-idea&labelColor=black)](https://www.jetbrains.com/idea/)
+- [![IntelliJ IDEA Ultimate](https://img.shields.io/badge/IntelliJ%20IDEA%20Ultimate-374151.svg?labelcolor=000&logo=intellij-idea&labelColor=black)](https://www.jetbrains.com/idea/)
 
-- [![WebStorm Version](https://img.shields.io/badge/WebStorm-2024.3-1F3263.svg?labelcolor=000&logo=webstorm&labelColor=black)](https://www.jetbrains.com/webstorm/)
+- [![WebStorm](https://img.shields.io/badge/WebStorm-1F3263.svg?labelcolor=000&logo=webstorm&labelColor=black)](https://www.jetbrains.com/webstorm/)
 
-- [![AppCode Version](https://img.shields.io/badge/AppCode-2024.3-2380B0.svg?labelcolor=000&logo=appcode&labelColor=black)](https://www.jetbrains.com/objc/)
+- [![PhpStorm](https://img.shields.io/badge/PhpStorm-953D8C.svg?labelcolor=000&logo=phpstorm&labelColor=black)](https://www.jetbrains.com/phpstorm/)
 
-- [![PhpStorm Version](https://img.shields.io/badge/PhpStorm-2024.3-953D8C.svg?labelcolor=000&logo=phpstorm&labelColor=black)](https://www.jetbrains.com/phpstorm/)
-
-- [![RubyMine Version](https://img.shields.io/badge/RubyMine-2024.3-A11523.svg?labelcolor=000&logo=ruby&labelColor=black)](https://www.jetbrains.com/ruby/)
+- [![RubyMine](https://img.shields.io/badge/RubyMine-A11523.svg?labelcolor=000&logo=ruby&labelColor=black)](https://www.jetbrains.com/ruby/)
 
 ## Usage
 
