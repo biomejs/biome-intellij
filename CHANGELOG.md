@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Resubmit the plugin to JetBrains Marketplace. Plugin behavior is unchanged from 1.11.1.
+
 ## 1.11.1 - 2026-10-21
 
 ### Documentation
