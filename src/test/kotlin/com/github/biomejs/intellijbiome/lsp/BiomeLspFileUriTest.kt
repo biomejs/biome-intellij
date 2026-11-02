@@ -8,8 +8,6 @@ import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.testFramework.builders.ModuleFixtureBuilder
 import com.intellij.testFramework.fixtures.CodeInsightFixtureTestCase
 import com.intellij.testFramework.fixtures.ModuleFixture
-import org.eclipse.lsp4j.InitializeParams
-import org.eclipse.lsp4j.WorkspaceFolder
 import java.net.URI
 import java.nio.file.Path
 
@@ -43,38 +41,6 @@ class BiomeLspFileUriTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Modu
         assertEquals(path, URI(uri).path)
     }
 
-    @Suppress("DEPRECATION")
-    fun testMappedInitializationRetainsTargetRootAndWorkspaceUris() {
-        val localRoot = "//wsl.localhost/Ubuntu/home/user/my project"
-        val targetRoot = "/home/user/my project"
-        val targetUri = checkNotNull(targetFileUri(localRoot, targetRoot))
-        val params = InitializeParams().apply {
-            rootPath = localRoot
-            rootUri = targetUri
-            workspaceFolders = listOf(WorkspaceFolder(targetUri, "my project"))
-        }.withTargetRootPath(localRoot) { path ->
-            assertEquals(localRoot, path)
-            targetRoot
-        }
-        assertEquals(targetRoot, params.rootPath)
-        assertEquals(targetUri, params.rootUri)
-        assertEquals(targetUri, params.workspaceFolders.single().uri)
-        assertEquals(params.rootPath, URI(params.rootUri).path)
-    }
-
-    @Suppress("DEPRECATION")
-    fun testUnmappedInitializationPreservesPlatformRootPath() {
-        val params = InitializeParams().apply { rootPath = "/eel/project" }
-            .withTargetRootPath("/local/project") { it }
-        assertEquals("/eel/project", params.rootPath)
-    }
-
-    @Suppress("DEPRECATION")
-    fun testInitializationWithoutSingleRootDoesNotMapAPath() {
-        val params = InitializeParams().withTargetRootPath(null) { error("No single root to map") }
-        assertNull(params.rootPath)
-    }
-
     fun testLocalDocumentUriRoundTripsThroughDescriptor() {
         val file = myFixture.addFileToProject("dir #100%/café.js", "let value = 1;").virtualFile
         val descriptor = descriptor(file)
@@ -85,16 +51,14 @@ class BiomeLspFileUriTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Modu
         assertEquals(file.path, descriptor.findFileByUri(uri)?.path)
     }
 
-    @Suppress("DEPRECATION")
-    fun testInitializationUsesTheSameRootForPathsAndUris() {
+    fun testPlatformInitializationUsesTheDescriptorWorkspaceUri() {
         val file = myFixture.addFileToProject("index.js", "let value = 1;").virtualFile
         val descriptor = descriptor(file)
         val root = descriptor.roots.single()
         val params = descriptor.createInitializeParams()
-        assertEquals(root.path, params.rootPath)
-        assertEquals(descriptor.getFileUri(root), params.rootUri)
-        assertEquals(params.rootUri, params.workspaceFolders.single().uri)
-        assertEquals(root.path, descriptor.findFileByUri(params.rootUri)?.path)
+        val workspace = params.workspaceFolders.single()
+        assertEquals(descriptor.getFileUri(root), workspace.uri)
+        assertEquals(root.path, descriptor.findFileByUri(workspace.uri)?.path)
     }
 
     private fun descriptor(file: VirtualFile): LspServerDescriptor {
