@@ -23,6 +23,7 @@ import kotlinx.coroutines.runBlocking
 import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.Diagnostic
+import java.net.URI
 
 
 class BiomeLspServerSupportProvider : LspServerSupportProvider {
@@ -111,8 +112,8 @@ private class BiomeLspServerDescriptor(
     override fun startServerProcess(): OSProcessHandler =
         targetRun.startProcess()
 
-    override fun getFilePath(file: VirtualFile): String =
-        targetRun.toTargetPath(file.path)
+    override fun getFileUri(file: VirtualFile): String =
+        targetFileUri(file.path, targetRun.toTargetPath(file.path)) ?: super.getFileUri(file)
 
     override fun findLocalFileByPath(path: String): VirtualFile? =
         super.findLocalFileByPath(targetRun.toLocalPath(path))
@@ -159,3 +160,7 @@ private class BiomeLspServerDescriptor(
         }
     }
 }
+
+// Unmapped files retain the platform's native, Windows, UNC, and remote URI handling.
+internal fun targetFileUri(localPath: String, targetPath: String): String? =
+    if (targetPath == localPath) null else URI("file", "", targetPath, null).toASCIIString()
