@@ -19,13 +19,13 @@ internal fun configureLocalNodeForRuntimeTests(project: Project, disposable: Dis
 
 /** Subscribe before opening any editor so a fast initial diagnostics notification cannot be missed. */
 internal class RuntimeGateEvents(project: Project, disposable: Disposable) {
-    private val diagnostics = java.util.concurrent.CopyOnWriteArrayList<Pair<com.intellij.platform.lsp.api.LspServer, com.intellij.openapi.vfs.VirtualFile>>()
+    private val diagnostics = java.util.concurrent.CopyOnWriteArrayList<Pair<com.intellij.platform.lsp.api.LspClient, com.intellij.openapi.vfs.VirtualFile>>()
 
     init {
-        com.intellij.platform.lsp.api.LspServerManager.getInstance(project).addLspServerManagerListener(
-            object : com.intellij.platform.lsp.api.LspServerManagerListener {
-                override fun diagnosticsReceived(server: com.intellij.platform.lsp.api.LspServer, file: com.intellij.openapi.vfs.VirtualFile) {
-                    if (server.providerClass == BiomeLspServerSupportProvider::class.java) diagnostics.add(server to file)
+        com.intellij.platform.lsp.api.LspClientManager.getInstance(project).addListener(
+            object : com.intellij.platform.lsp.api.LspClientManagerListener {
+                override fun diagnosticsReceived(lspClient: com.intellij.platform.lsp.api.LspClient, file: com.intellij.openapi.vfs.VirtualFile) {
+                    if (lspClient.providerClass == BiomeLspServerSupportProvider::class.java) diagnostics.add(lspClient to file)
                 }
             }, disposable, true)
     }
@@ -35,7 +35,7 @@ internal class RuntimeGateEvents(project: Project, disposable: Disposable) {
             "Biome diagnostics not received for ${file.path} (version=$version)",
             { diagnostics.any { it.second == file && (version == null || it.first.initializeResult?.serverInfo?.version == version) } }, timeout)
     }
-    fun awaitDiagnostics(file: com.intellij.openapi.vfs.VirtualFile, server: com.intellij.platform.lsp.api.LspServer) {
+    fun awaitDiagnostics(file: com.intellij.openapi.vfs.VirtualFile, server: com.intellij.platform.lsp.api.LspClient) {
         com.intellij.testFramework.PlatformTestUtil.waitWithEventsDispatching(
             "Replacement Biome server did not send diagnostics for ${file.path}",
             { diagnostics.any { it.first === server && it.second == file } }, 20)

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Require IDE 2026.1.4 or newer (build 261.26222.58+).
+- Use current public LSP, localization, read-action, and file-chooser APIs.
+
 ## 1.11.3 - 2026-11-02
 
 ### Bug fixes

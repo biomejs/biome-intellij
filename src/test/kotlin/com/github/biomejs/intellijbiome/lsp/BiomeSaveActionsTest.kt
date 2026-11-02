@@ -21,7 +21,7 @@ import org.eclipse.lsp4j.jsonrpc.messages.Either
 import java.util.EnumSet
 import java.util.concurrent.atomic.AtomicReference
 import com.intellij.openapi.fileEditor.FileDocumentManager
-import com.intellij.platform.lsp.api.LspServer
+import com.intellij.platform.lsp.api.LspClient
 import com.intellij.testFramework.replaceService
 import kotlinx.coroutines.awaitCancellation
 import org.eclipse.lsp4j.DocumentFormattingParams
@@ -54,8 +54,8 @@ class BiomeSaveActionsTest : BiomeLspFixtureTestCase() {
     fun testCurrentServerUsesImmediateActionCapabilities() {
         val document = openCurrentDocument()
         val file = FileDocumentManager.getInstance().getFile(document)!!
-        val server = com.intellij.platform.lsp.api.LspServerManager.getInstance(project)
-            .getServersForProvider(BiomeLspServerSupportProvider::class.java)
+        val server = com.intellij.platform.lsp.api.LspClientManager.getInstance(project)
+            .getClients(BiomeLspServerSupportProvider::class.java)
             .single { it.descriptor.isSupportedFile(file) }
         val capabilities = server.descriptor.createInitializeParams().capabilities
         assertFalse("The bounded action path cannot resolve deferred edits",
@@ -110,7 +110,7 @@ class BiomeSaveActionsTest : BiomeLspFixtureTestCase() {
         val document = openDocuments().first()
         var formattingRequested = false
         val service = BiomeServerService(project, object : BiomeLspRequests by DefaultBiomeLspRequests {
-            override suspend fun codeActions(server: LspServer, params: CodeActionParams): List<Either<Command, CodeAction>> {
+            override suspend fun codeActions(server: LspClient, params: CodeActionParams): List<Either<Command, CodeAction>> {
                 withContext(Dispatchers.EDT) {
                     WriteCommandAction.runWriteCommandAction(project) { document.setText("// newer typing\n") }
                 }
@@ -119,7 +119,7 @@ class BiomeSaveActionsTest : BiomeLspFixtureTestCase() {
                         TextEdit(Range(Position(0, 0), Position(0, 0)), "// stale response\n"))))
                 }))
             }
-            override suspend fun formatting(server: LspServer, params: DocumentFormattingParams): List<TextEdit> {
+            override suspend fun formatting(server: LspClient, params: DocumentFormattingParams): List<TextEdit> {
                 formattingRequested = true
                 return emptyList()
             }
@@ -136,7 +136,7 @@ class BiomeSaveActionsTest : BiomeLspFixtureTestCase() {
         val original = document.text
         val cancellation = CancellationException("cancel before write")
         val service = BiomeServerService(project, object : BiomeLspRequests by DefaultBiomeLspRequests {
-            override suspend fun formatting(server: LspServer, params: DocumentFormattingParams): List<TextEdit> {
+            override suspend fun formatting(server: LspClient, params: DocumentFormattingParams): List<TextEdit> {
                 currentCoroutineContext().cancel(cancellation)
                 return listOf(TextEdit(Range(Position(0, 0), Position(0, 0)), "// canceled\n"))
             }
@@ -176,7 +176,7 @@ class BiomeSaveActionsTest : BiomeLspFixtureTestCase() {
             })
         project.replaceService(BiomeServerService::class.java, BiomeServerService(project,
             object : BiomeLspRequests by DefaultBiomeLspRequests {
-                override suspend fun formatting(server: LspServer, params: DocumentFormattingParams): List<TextEdit> {
+                override suspend fun formatting(server: LspClient, params: DocumentFormattingParams): List<TextEdit> {
                     requestReady.complete(Unit)
                     releaseResponse.await()
                     // This marker cannot run on the single worker until the current
@@ -222,7 +222,7 @@ class BiomeSaveActionsTest : BiomeLspFixtureTestCase() {
         val document = openDocuments().first()
         val original = document.text
         val service = BiomeServerService(project, object : BiomeLspRequests by DefaultBiomeLspRequests {
-            override suspend fun codeActions(server: LspServer, params: CodeActionParams): List<Either<Command, CodeAction>> =
+            override suspend fun codeActions(server: LspClient, params: CodeActionParams): List<Either<Command, CodeAction>> =
                 listOf(Either.forRight(CodeAction("edit and command").apply {
                     edit = WorkspaceEdit(mapOf(params.textDocument.uri to listOf(
                         TextEdit(Range(Position(0, 0), Position(0, 0)), "// partial action\n"))))
@@ -250,13 +250,13 @@ class BiomeSaveActionsTest : BiomeLspFixtureTestCase() {
         val calls = CopyOnWriteArrayList<String>()
         project.replaceService(BiomeServerService::class.java, BiomeServerService(project,
             object : BiomeLspRequests by DefaultBiomeLspRequests {
-                override suspend fun codeActions(server: LspServer, params: CodeActionParams): List<Either<Command, CodeAction>>? {
+                override suspend fun codeActions(server: LspClient, params: CodeActionParams): List<Either<Command, CodeAction>>? {
                     assertEquals(org.eclipse.lsp4j.CodeActionTriggerKind.Automatic, params.context.triggerKind)
                     assertEquals(Position(0, 0), params.range.start)
                     calls += params.context.only.single()
                     return DefaultBiomeLspRequests.codeActions(server, params)
                 }
-                override suspend fun formatting(server: LspServer, params: DocumentFormattingParams): List<TextEdit>? {
+                override suspend fun formatting(server: LspClient, params: DocumentFormattingParams): List<TextEdit>? {
                     calls += "format"
                     return DefaultBiomeLspRequests.formatting(server, params)
                 }
@@ -321,14 +321,14 @@ class BiomeSaveActionsTest : BiomeLspFixtureTestCase() {
         val fixed = CopyOnWriteArrayList<String>()
         project.replaceService(BiomeServerService::class.java, BiomeServerService(project,
             object : BiomeLspRequests by DefaultBiomeLspRequests {
-                override suspend fun codeActions(server: LspServer, params: CodeActionParams): List<Either<Command, CodeAction>> {
+                override suspend fun codeActions(server: LspClient, params: CodeActionParams): List<Either<Command, CodeAction>> {
                     fixed += params.textDocument.uri
                     return listOf(Either.forRight(CodeAction("controlled fix").apply {
                         edit = WorkspaceEdit(mapOf(params.textDocument.uri to listOf(
                             TextEdit(Range(Position(0, 0), Position(0, 0)), "// safe fix\n"))))
                     }))
                 }
-                override suspend fun formatting(server: LspServer, params: DocumentFormattingParams): List<TextEdit> {
+                override suspend fun formatting(server: LspClient, params: DocumentFormattingParams): List<TextEdit> {
                     if (params.textDocument.uri == fixed.first()) awaitCancellation()
                     return listOf(TextEdit(Range(Position(0, 0), Position(0, 0)), "// formatted\n"))
                 }
@@ -359,7 +359,7 @@ class BiomeSaveActionsTest : BiomeLspFixtureTestCase() {
         val requests = CopyOnWriteArrayList<String>()
         project.replaceService(BiomeServerService::class.java, BiomeServerService(project,
             object : BiomeLspRequests by DefaultBiomeLspRequests {
-                override suspend fun formatting(server: LspServer, params: DocumentFormattingParams): List<TextEdit> {
+                override suspend fun formatting(server: LspClient, params: DocumentFormattingParams): List<TextEdit> {
                     requests += params.textDocument.uri
                     if (requests.size == 1) firstRequest()
                     return listOf(TextEdit(Range(Position(0, 0), Position(0, 0)), "// saved by Biome\n"))
