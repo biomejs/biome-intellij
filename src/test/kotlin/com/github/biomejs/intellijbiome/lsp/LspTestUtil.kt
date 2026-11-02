@@ -6,9 +6,9 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.platform.lsp.api.LspServer
-import com.intellij.platform.lsp.api.LspServerManager
-import com.intellij.platform.lsp.api.LspServerManagerListener
+import com.intellij.platform.lsp.api.LspClient
+import com.intellij.platform.lsp.api.LspClientManager
+import com.intellij.platform.lsp.api.LspClientManagerListener
 import com.intellij.platform.lsp.api.LspServerState
 import com.intellij.testFramework.ExpectedHighlightingData
 import com.intellij.testFramework.PlatformTestUtil
@@ -33,18 +33,18 @@ fun waitUntilFileOpenedByLspServer(
     try {
         val fileOpened = AtomicBoolean()
         val serverShutdown = AtomicBoolean()
-        LspServerManager.getInstance(project).addLspServerManagerListener(object : LspServerManagerListener {
-            override fun serverStateChanged(lspServer: LspServer) {
-                if (!matchesDescriptor(lspServer, descriptorClassName)) {
+        LspClientManager.getInstance(project).addListener(object : LspClientManagerListener {
+            override fun serverStateChanged(lspClient: LspClient) {
+                if (!matchesDescriptor(lspClient, descriptorClassName)) {
                     return
                 }
-                if (lspServer.state in arrayOf(LspServerState.ShutdownNormally, LspServerState.ShutdownUnexpectedly)) {
+                if (lspClient.state in arrayOf(LspServerState.ShutdownNormally, LspServerState.ShutdownUnexpectedly)) {
                     serverShutdown.set(true)
                 }
             }
 
-            override fun fileOpened(lspServer: LspServer, file: VirtualFile) {
-                if (!matchesDescriptor(lspServer, descriptorClassName)) {
+            override fun fileOpened(lspClient: LspClient, file: VirtualFile) {
+                if (!matchesDescriptor(lspClient, descriptorClassName)) {
                     return
                 }
                 if (file == topLevelFile) {
@@ -171,7 +171,7 @@ private inline fun <T> withDiagnosticsReceivedCounter(
     val disposable = Disposer.newDisposable()
     try {
         val diagnosticsReceivedCounter = DiagnosticsReceivedCounter(topLevelFile, descriptorClassName)
-        LspServerManager.getInstance(project).addLspServerManagerListener(
+        LspClientManager.getInstance(project).addListener(
             diagnosticsReceivedCounter,
             disposable,
             true
@@ -182,14 +182,14 @@ private inline fun <T> withDiagnosticsReceivedCounter(
     }
 }
 
-private fun matchesDescriptor(lspServer: LspServer, descriptorClassName: String?): Boolean {
-    return descriptorClassName == null || lspServer.descriptor.javaClass.name == descriptorClassName
+private fun matchesDescriptor(lspClient: LspClient, descriptorClassName: String?): Boolean {
+    return descriptorClassName == null || lspClient.descriptor.javaClass.name == descriptorClassName
 }
 
 private class DiagnosticsReceivedCounter(
     val file: VirtualFile,
     private val descriptorClassName: String?,
-) : LspServerManagerListener {
+) : LspClientManagerListener {
     @Volatile
     var serverShutdown: Boolean = false
         private set
@@ -198,17 +198,17 @@ private class DiagnosticsReceivedCounter(
     val diagnosticsReceivedCount: Int
         get() = diagnosticsReceived.get()
 
-    override fun serverStateChanged(lspServer: LspServer) {
-        if (!matchesDescriptor(lspServer, descriptorClassName)) {
+    override fun serverStateChanged(lspClient: LspClient) {
+        if (!matchesDescriptor(lspClient, descriptorClassName)) {
             return
         }
-        if (lspServer.state in arrayOf(LspServerState.ShutdownNormally, LspServerState.ShutdownUnexpectedly)) {
+        if (lspClient.state in arrayOf(LspServerState.ShutdownNormally, LspServerState.ShutdownUnexpectedly)) {
             serverShutdown = true
         }
     }
 
-    override fun diagnosticsReceived(lspServer: LspServer, file: VirtualFile) {
-        if (!matchesDescriptor(lspServer, descriptorClassName)) {
+    override fun diagnosticsReceived(lspClient: LspClient, file: VirtualFile) {
+        if (!matchesDescriptor(lspClient, descriptorClassName)) {
             return
         }
         if (file == this.file) {

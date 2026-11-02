@@ -3,8 +3,8 @@ package com.github.biomejs.intellijbiome.lsp
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.platform.lsp.api.LspServerDescriptor
-import com.intellij.platform.lsp.api.LspServerSupportProvider
+import com.intellij.platform.lsp.api.LspClientDescriptor
+import com.intellij.platform.lsp.api.LspIntegrationProvider
 import com.intellij.testFramework.builders.ModuleFixtureBuilder
 import com.intellij.testFramework.fixtures.CodeInsightFixtureTestCase
 import com.intellij.testFramework.fixtures.ModuleFixture
@@ -61,15 +61,15 @@ class BiomeLspFileUriTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Modu
         assertEquals(root.path, descriptor.findFileByUri(workspace.uri)?.path)
     }
 
-    private fun descriptor(file: VirtualFile): LspServerDescriptor {
+    private fun descriptor(file: VirtualFile): LspClientDescriptor {
         BiomeSettings.getInstance(project).apply {
             configurationMode = ConfigurationMode.MANUAL
             executablePath = Path.of(System.getProperty("java.home"), "bin", "java").toString()
             configPath = file.parent.path
         }
-        var capturedDescriptor: LspServerDescriptor? = null
-        BiomeLspServerSupportProvider().fileOpened(project, file, object : LspServerSupportProvider.LspServerStarter {
-            override fun ensureServerStarted(descriptor: LspServerDescriptor) {
+        var capturedDescriptor: LspClientDescriptor? = null
+        BiomeLspServerSupportProvider().fileOpened(project, file, object : LspIntegrationProvider.LspClientStarter {
+            override fun ensureClientStarted(descriptor: LspClientDescriptor) {
                 capturedDescriptor = descriptor
             }
         })

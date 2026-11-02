@@ -22,8 +22,8 @@ import com.intellij.openapi.command.undo.UndoManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.impl.text.TextEditorProvider
 import com.intellij.openapi.progress.ProcessCanceledException
-import com.intellij.platform.lsp.api.LspServer
-import com.intellij.platform.lsp.api.LspServerManager
+import com.intellij.platform.lsp.api.LspClient
+import com.intellij.platform.lsp.api.LspClientManager
 import com.intellij.platform.lsp.api.LspServerState
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.replaceService
@@ -91,7 +91,7 @@ class BiomeManualActionsTest : BiomeLspFixtureTestCase() {
         try {
             PlatformTestUtil.waitWithEventsDispatching("Server must be initializing", {
                 Files.exists(pid) &&
-                    LspServerManager.getInstance(project).getServersForProvider(BiomeLspServerSupportProvider::class.java)
+                    LspClientManager.getInstance(project).getClients(BiomeLspServerSupportProvider::class.java)
                         .any { it.state == LspServerState.Initializing }
             }, 10)
             var requested = false
@@ -582,14 +582,14 @@ class BiomeManualActionsTest : BiomeLspFixtureTestCase() {
         notifications.clear()
     }
 
-    private fun replaceRequests(request: suspend (LspServer, CodeActionParams) -> List<Either<Command, CodeAction>>?) {
+    private fun replaceRequests(request: suspend (LspClient, CodeActionParams) -> List<Either<Command, CodeAction>>?) {
         val disposable = requestDisposable ?: Disposer.newDisposable().also {
             requestDisposable = it
             Disposer.register(testRootDisposable, it)
         }
         project.replaceService(BiomeServerService::class.java, BiomeServerService(project,
             object : BiomeLspRequests by DefaultBiomeLspRequests {
-                override suspend fun codeActions(server: LspServer, params: CodeActionParams) = request(server, params)
+                override suspend fun codeActions(server: LspClient, params: CodeActionParams) = request(server, params)
             }), disposable)
     }
 

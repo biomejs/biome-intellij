@@ -51,6 +51,9 @@ The test task uses the SDK's JetBrains Runtime and a separate Biome daemon cache
 for each checkout and runtime task. Tag Remote Robot tests with `remote-robot`;
 they require a running IDE and are excluded from the headless suite.
 
+The compile SDK and minimum supported IDE are 2026.1.4 (build 261.26222.58).
+Run `./gradlew test` for regression coverage on that minimum SDK.
+
 CI tests only the stable WebStorm version pinned by `currentIde*` in
 `gradle.properties`. Update the IDE version/build, test framework, and bundled
 Kotlin pins together for the next stable release. Use `-PcurrentIdePath=...` for a

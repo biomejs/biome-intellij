@@ -8,6 +8,7 @@ import com.intellij.ide.actionsOnSave.ActionsOnSaveConfigurable
 import com.intellij.lang.javascript.JavaScriptBundle
 import com.intellij.openapi.application.ApplicationNamesInfo
 import com.intellij.openapi.components.service
+import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.BoundSearchableConfigurable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogPanel
@@ -28,6 +29,7 @@ import javax.swing.JCheckBox
 import javax.swing.JRadioButton
 import javax.swing.event.HyperlinkEvent
 import kotlin.io.path.Path
+import com.intellij.ui.components.textFieldWithBrowseButton as createTextFieldWithBrowseButton
 
 private const val HELP_TOPIC = "reference.settings.biome"
 
@@ -96,15 +98,25 @@ class BiomeConfigurable(internal val project: Project) :
             // *********************
             panel {
                 row(BiomeBundle.message("biome.path.executable")) {
-                    textFieldWithBrowseButton(BiomeBundle.message("biome.path.executable")) { fileChosen(it) }.bindText(
-                        settings::executablePath)
+                    cell(createTextFieldWithBrowseButton(
+                        null,
+                        FileChooserDescriptorFactory.singleFile().withTitle(BiomeBundle.message("biome.path.executable")),
+                        ::fileChosen,
+                    )).applyToComponent {
+                        isOpaque = false
+                        textField.isOpaque = false
+                    }.columns(COLUMNS_SHORT).bindText(settings::executablePath)
                 }.visibleIf(manualConfiguration.selected)
 
                 row(BiomeBundle.message("biome.config.path.label")) {
-                    textFieldWithBrowseButton(
-                        BiomeBundle.message("biome.config.path.label"),
+                    cell(createTextFieldWithBrowseButton(
                         project,
-                    ) { fileChosen(it) }.bindText(settings::configPath).validationOnInput(validateConfigDir())
+                        FileChooserDescriptorFactory.singleFile().withTitle(BiomeBundle.message("biome.config.path.label")),
+                        ::fileChosen,
+                    )).applyToComponent {
+                        isOpaque = false
+                        textField.isOpaque = false
+                    }.columns(COLUMNS_SHORT).bindText(settings::configPath).validationOnInput(validateConfigDir())
                 }.visibleIf(manualConfiguration.selected)
             }
 

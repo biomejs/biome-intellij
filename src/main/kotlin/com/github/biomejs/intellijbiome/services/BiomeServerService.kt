@@ -27,9 +27,9 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.newvfs.NewVirtualFileSystem
-import com.intellij.platform.lsp.api.LspServer
+import com.intellij.platform.lsp.api.LspClient
 import com.intellij.platform.lsp.api.LspServerState
-import com.intellij.platform.lsp.api.LspServerManager
+import com.intellij.platform.lsp.api.LspClientManager
 import com.intellij.platform.lsp.api.customization.LspIntentionAction
 import com.intellij.platform.lsp.util.getLsp4jRange
 import com.intellij.platform.lsp.util.getRangeInDocument
@@ -59,8 +59,8 @@ class BiomeServerService internal constructor(
         fun getInstance(project: Project): BiomeServerService = project.getService(BiomeServerService::class.java)
     }
 
-    private fun getServer(file: VirtualFile): LspServer? =
-        LspServerManager.getInstance(project).getServersForProvider(BiomeLspServerSupportProvider::class.java)
+    private fun getServer(file: VirtualFile): LspClient? =
+        LspClientManager.getInstance(project).getClients(BiomeLspServerSupportProvider::class.java)
             .firstOrNull { server -> server.state == LspServerState.Running && server.descriptor.isSupportedFile(file) }
 
     suspend fun applySafeFixes(document: Document): Outcome =
@@ -73,11 +73,11 @@ class BiomeServerService internal constructor(
         executeFeatures(document, EnumSet.of(Feature.Format))
 
     fun restartBiomeServer() {
-        LspServerManager.getInstance(project).stopAndRestartIfNeeded(BiomeLspServerSupportProvider::class.java)
+        LspClientManager.getInstance(project).stopAndRestartClientsIfNeeded(BiomeLspServerSupportProvider::class.java)
     }
 
     fun stopBiomeServer() {
-        LspServerManager.getInstance(project).stopServers(BiomeLspServerSupportProvider::class.java)
+        LspClientManager.getInstance(project).stopClients(BiomeLspServerSupportProvider::class.java)
     }
 
     suspend fun executeFeatures(document: Document, features: EnumSet<Feature>): Outcome {
@@ -149,7 +149,7 @@ class BiomeServerService internal constructor(
     }
 
     private suspend fun applyCodeActions(
-        server: LspServer,
+        server: LspClient,
         document: Document,
         file: VirtualFile,
         stamp: Long,
@@ -196,7 +196,7 @@ class BiomeServerService internal constructor(
                             expectedStamp = document.modificationStamp
                         }
                     }
-                    val available = ReadAction.compute<Boolean, RuntimeException> {
+                    val available = ReadAction.computeBlocking<Boolean, RuntimeException> {
                         if (!isCurrent()) {
                             stale = true
                             false

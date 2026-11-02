@@ -3,8 +3,8 @@ package com.github.biomejs.intellijbiome.startup
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
-import com.intellij.platform.lsp.api.LspServerDescriptor
-import com.intellij.platform.lsp.api.LspServerSupportProvider
+import com.intellij.platform.lsp.api.LspClientDescriptor
+import com.intellij.platform.lsp.api.LspIntegrationProvider
 import com.intellij.testFramework.builders.ModuleFixtureBuilder
 import com.intellij.testFramework.fixtures.CodeInsightFixtureTestCase
 import com.intellij.testFramework.fixtures.ModuleFixture
@@ -13,9 +13,9 @@ import java.nio.file.Path
 
 class BiomeStartupEligibilityTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<ModuleFixture>>() {
     private lateinit var invocationLog: Path
-    private val descriptors = mutableListOf<LspServerDescriptor>()
-    private val starter = object : LspServerSupportProvider.LspServerStarter {
-        override fun ensureServerStarted(descriptor: LspServerDescriptor) { descriptors += descriptor }
+    private val descriptors = mutableListOf<LspClientDescriptor>()
+    private val starter = object : LspIntegrationProvider.LspClientStarter {
+        override fun ensureClientStarted(descriptor: LspClientDescriptor) { descriptors += descriptor }
     }
 
     override fun setUp() {

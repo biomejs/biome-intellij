@@ -6,8 +6,9 @@ import java.io.File
 import java.security.MessageDigest
 
 val remoteRobotVersion = "0.11.21"
-val testPlatformKotlinVersion = "2.2.20"
-val minimumIdeBuild = "WS-253.28294.332"
+val testPlatformKotlinVersion = "2.3.20"
+val minimumIdeBuild = "WS-261.26222.58"
+val minimumIdeTestFrameworkVersion = "261.26222.65"
 val currentIdeVersion = providers.gradleProperty("currentIdeVersion").get()
 val currentIdeBuild = providers.gradleProperty("currentIdeBuild").get()
 
@@ -72,7 +73,7 @@ dependencies {
     // Plugin Dependencies. Uses `platformPlugins` property from the gradle.properties file for plugin from JetBrains Marketplace.
     plugins(providers.gradleProperty("platformPlugins").map { it.split(',') })
 
-    testFramework(TestFrameworkType.Platform)
+    testFramework(TestFrameworkType.Platform, minimumIdeTestFrameworkVersion)
     pluginVerifier()
   }
 }
@@ -108,6 +109,7 @@ intellijPlatform {
       VerifyPluginTask.FailureLevel.MISSING_DEPENDENCIES,
       VerifyPluginTask.FailureLevel.PLUGIN_STRUCTURE_WARNINGS,
       VerifyPluginTask.FailureLevel.INTERNAL_API_USAGES,
+      VerifyPluginTask.FailureLevel.DEPRECATED_API_USAGES,
     )
     ides {
       val currentPath = providers.gradleProperty("currentIdePath")

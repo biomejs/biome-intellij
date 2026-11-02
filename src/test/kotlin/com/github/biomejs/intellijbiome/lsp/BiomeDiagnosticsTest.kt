@@ -2,9 +2,13 @@ package com.github.biomejs.intellijbiome.lsp
 
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
-import com.intellij.platform.lsp.api.LspServerDescriptor
-import com.intellij.platform.lsp.api.LspServerSupportProvider
+import com.intellij.platform.lsp.api.LspClientDescriptor
+import com.intellij.platform.lsp.api.LspIntegrationProvider
 import com.intellij.platform.lsp.api.customization.LspDiagnosticsSupport
+import com.intellij.platform.lsp.api.customization.LspCompletionDisabled
+import com.intellij.platform.lsp.api.customization.LspFormattingSupport
+import com.intellij.platform.lsp.api.customization.LspGoToDefinitionDisabled
+import com.intellij.platform.lsp.api.customization.LspOnTypeFormattingDisabled
 import com.intellij.testFramework.builders.ModuleFixtureBuilder
 import com.intellij.testFramework.fixtures.CodeInsightFixtureTestCase
 import com.intellij.testFramework.fixtures.ModuleFixture
@@ -12,20 +16,39 @@ import org.eclipse.lsp4j.Diagnostic
 import java.nio.file.Path
 
 class BiomeDiagnosticsTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<ModuleFixture>>() {
-    private val renderer by lazy {
+    private val descriptor by lazy {
         val file = myFixture.addFileToProject("diagnostic.js", "").virtualFile
         BiomeSettings.getInstance(project).apply {
             configurationMode = ConfigurationMode.MANUAL
             executablePath = Path.of(System.getProperty("java.home"), "bin", "java").toString()
             configPath = file.parent.path
         }
-        var capturedDescriptor: LspServerDescriptor? = null
-        BiomeLspServerSupportProvider().fileOpened(project, file, object : LspServerSupportProvider.LspServerStarter {
-            override fun ensureServerStarted(descriptor: LspServerDescriptor) {
+        var capturedDescriptor: LspClientDescriptor? = null
+        BiomeLspServerSupportProvider().fileOpened(project, file, object : LspIntegrationProvider.LspClientStarter {
+            override fun ensureClientStarted(descriptor: LspClientDescriptor) {
                 capturedDescriptor = descriptor
             }
         })
-        checkNotNull(capturedDescriptor) { "The public provider did not supply a descriptor" }.lspDiagnosticsSupport
+        checkNotNull(capturedDescriptor) { "The public provider did not supply a descriptor" }
+    }
+
+    fun testDisabledFeaturesRemainDisabled() {
+        val customization = descriptor.lspCustomization
+        assertSame(LspGoToDefinitionDisabled, customization.goToDefinitionCustomizer)
+        assertSame(LspCompletionDisabled, customization.completionCustomizer)
+        assertSame(LspOnTypeFormattingDisabled, customization.onTypeFormattingCustomizer)
+    }
+
+    fun testFormattingUsesCurrentSettings() {
+        val formatting = descriptor.lspCustomization.formattingCustomizer as LspFormattingSupport
+        val file = myFixture.findFileInTempDir("diagnostic.js")!!
+        val settings = BiomeSettings.getInstance(project)
+        settings.enableLspFormat = false
+        assertFalse(formatting.shouldFormatThisFileExclusivelyByServer(file, true, true))
+        settings.enableLspFormat = true
+        assertTrue(formatting.shouldFormatThisFileExclusivelyByServer(file, true, false))
+        settings.configurationMode = ConfigurationMode.DISABLED
+        assertFalse(formatting.shouldFormatThisFileExclusivelyByServer(file, true, true))
     }
 
     fun testAbsentCodeRendersWithoutSuffix() {
@@ -63,7 +86,7 @@ class BiomeDiagnosticsTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Mod
         assertEquals("Biome: first<br>second<br>third<br>fourth (rule)", support().getTooltip(diagnostic))
     }
 
-    private fun support(): LspDiagnosticsSupport = checkNotNull(renderer)
+    private fun support(): LspDiagnosticsSupport = descriptor.lspCustomization.diagnosticsCustomizer as LspDiagnosticsSupport
 
     private fun assertRendering(diagnostic: Diagnostic, expected: String) {
         assertEquals(expected, support().getMessage(diagnostic))
