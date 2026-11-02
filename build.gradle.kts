@@ -107,6 +107,7 @@ intellijPlatform {
       VerifyPluginTask.FailureLevel.INVALID_PLUGIN,
       VerifyPluginTask.FailureLevel.MISSING_DEPENDENCIES,
       VerifyPluginTask.FailureLevel.PLUGIN_STRUCTURE_WARNINGS,
+      VerifyPluginTask.FailureLevel.INTERNAL_API_USAGES,
     )
     ides {
       val currentPath = providers.gradleProperty("currentIdePath")
