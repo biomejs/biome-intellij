@@ -15,9 +15,9 @@
         <li>Reformat your code with <code>⌥⇧ ⌘ L</code> or <code>Ctrl+Alt+L</code></li>
      </ul>
 
-    <p><a href="https://biomejs.dev/">Biome</a> is a fast formatter for JavaScript, TypeScript, JSX, TSX, JSON, CSS, and GraphQL that scores 97% compatibility with Prettier, saving CI and developer time.</p>
+    <p><a href="https://biomejs.dev/">Biome</a> is a fast formatter for JavaScript, TypeScript, JSX, TSX, JSON, CSS, GraphQL, HTML, Markdown, YAML, and SCSS that scores 97% compatibility with Prettier, saving CI and developer time.</p>
 
-    <p>It is also a performant linter for JavaScript, TypeScript, JSX, CSS, and GraphQL, featuring 281 rules from ESLint, TypeScript ESLint, and other sources.</p>
+    <p>It is also a performant linter for JavaScript, TypeScript, JSX, JSON, CSS, GraphQL, HTML, Markdown, YAML, and SCSS featuring more than 750 rules from ESLint, TypeScript ESLint, and other sources.</p>
 
     <p>Not only can you format and lint your code separately, you can do it all at once with a single command!</p>
 
