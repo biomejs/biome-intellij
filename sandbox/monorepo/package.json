@@ -3,7 +3,7 @@
       "private": true,
       "packageManager": "pnpm@12.14.0",
       "devDependencies": {
-            "@biomejs/biome": "2.5.15"
+            "@biomejs/biome": "2.6.6"
       },
       "scripts": {
             "check": "biome check ."
