@@ -6,7 +6,9 @@ import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.util.NodePackage
 import com.intellij.javascript.nodejs.util.NodePackageDescriptor
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.io.OSAgnosticPathUtil
 import com.intellij.openapi.vfs.VirtualFile
+import java.io.File
 import java.nio.file.Paths
 
 class BiomePackage(private val project: Project) {
@@ -36,8 +38,15 @@ class BiomePackage(private val project: Project) {
         return when (configurationMode) {
             ConfigurationMode.DISABLED -> null
             ConfigurationMode.AUTOMATIC -> findBiomeExecutable(virtualFile)
-            ConfigurationMode.MANUAL -> settings.executablePath
+            ConfigurationMode.MANUAL -> resolveManualExecutable(settings.executablePath)
         }
+    }
+
+    private fun resolveManualExecutable(executable: String): String {
+        val base = project.basePath ?: return executable
+        val path = File(executable)
+        if (path.parent == null || OSAgnosticPathUtil.isAbsolute(executable)) return executable
+        return File(base).resolve(path).path
     }
 
     private fun findBiomeExecutable(virtualFile: VirtualFile): String? {

@@ -53,7 +53,7 @@ There are several reasons to behave like this:
 
 #### `Biome CLI Path`
 
-This setting overrides the Biome binary used by the plugin.
+This setting overrides the Biome binary used by the plugin. A relative path such as `./tools/biome` starts at the IDE project directory. Biome runs with the selected workspace as its working directory.
 
 #### Enabling Code Formatting
 

@@ -1,5 +1,6 @@
 package com.github.biomejs.intellijbiome.startup
 
+import com.github.biomejs.intellijbiome.BiomePackage
 import com.github.biomejs.intellijbiome.BiomeTargetRun
 import com.github.biomejs.intellijbiome.fixtures.StartupLspProcess
 import com.github.biomejs.intellijbiome.lsp.BiomeLspServerSupportProvider
@@ -122,16 +123,53 @@ class BiomeStartupLspTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Modu
         }
     }
 
-    fun testRelativeNodeLauncherUsesNestedBiomeRootWithoutProbing() {
+    fun testManualExecutablePreservesBareNamesAndAbsolutePaths() {
+        val file = myFixture.addFileToProject("nested/index.js", "").virtualFile
+        val settings = BiomeSettings.getInstance(project)
+        val biome = BiomePackage(project)
+        for (path in listOf("biome", "/usr/bin/biome", "C:/tools/biome.exe", "//wsl.localhost/Ubuntu/bin/biome")) {
+            settings.executablePath = path
+            assertEquals(path, biome.binaryPath(file))
+        }
+    }
+
+    fun testProjectRelativeNodeLauncherStartsFromNestedWorkspace() {
         configureNodeInterpreter()
+        // Only the configured interpreter can run this non-executable Node script.
+        checkProjectRelativeLauncher(nodeLauncher(), executableFile = false)
+    }
+
+    fun testProjectRelativeDirectLauncherStartsFromNestedWorkspace() {
+        checkProjectRelativeLauncher(Files.readString(executable), executableFile = true)
+    }
+
+    private fun checkProjectRelativeLauncher(script: String, executableFile: Boolean) {
+        val launcher = Path.of(checkNotNull(project.basePath), "tools", "biome")
+        val createdDirs = generateSequence(launcher.parent) { it.parent }.takeWhile { !Files.exists(it) }.toList()
+        Files.createDirectories(launcher.parent)
+        Files.createFile(launcher)
+        Disposer.register(testRootDisposable) {
+            Files.deleteIfExists(launcher)
+            createdDirs.forEach { Files.deleteIfExists(it) }
+        }
+        Files.writeString(launcher, script)
+        if (executableFile) assertTrue(launcher.toFile().setExecutable(true))
+
         myFixture.addFileToProject("nested root/biome.json", """{"root":true}""")
         val file = myFixture.addFileToProject("nested root/index.js", "let value = 1;").virtualFile
-        // This is a controlled Node fixture; real npm/native coverage lives in the launcher tests.
-        myFixture.addFileToProject("nested root/node_modules/@biomejs/biome/bin/biome", nodeLauncher())
-        BiomeSettings.getInstance(project).executablePath = "./node_modules/@biomejs/biome/bin/biome"
+        val decoyLog = Path.of(myFixture.tempDirPath, "nested-launcher-used")
+        val decoy = myFixture.addFileToProject(
+            "nested root/tools/biome",
+            "#!/bin/sh\ntouch ${quote(decoyLog.toString())}\nexec ${quote(executable.toString())} \"\$@\"\n",
+        ).virtualFile
+        assertTrue(decoy.toNioPath().toFile().setExecutable(true))
+        BiomeSettings.getInstance(project).executablePath = "./tools/biome"
         val descriptor = descriptorFor(file)
         assertEquals(listOf(file.parent), descriptor.roots.toList())
-        start(descriptor) { assertOnlyLspInvocation(file.parent.toNioPath()) }
+        start(descriptor) {
+            assertFalse("A nested workspace must not override the configured launcher", Files.exists(decoyLog))
+            assertOnlyLspInvocation(file.parent.toNioPath())
+        }
     }
 
     fun testSdkStopDuringInitializationShutsDownAfterResponseIsReleased() {
