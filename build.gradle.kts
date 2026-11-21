@@ -6,7 +6,7 @@ import java.io.File
 import java.security.MessageDigest
 
 val remoteRobotVersion = "0.11.21"
-val testPlatformKotlinVersion = "2.4.21"
+val testKotlinBomVersion = "2.4.21"
 val minimumIdeBuild = "WS-261.26222.58"
 val minimumIdeTestFrameworkVersion = "261.26222.65"
 val currentIdeVersion = providers.gradleProperty("currentIdeVersion").get()
@@ -40,7 +40,7 @@ repositories {
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
 dependencies {
   implementation(libs.kotlinxSerialization)
-  testImplementation(enforcedPlatform("org.jetbrains.kotlin:kotlin-bom:$testPlatformKotlinVersion"))
+  testImplementation(enforcedPlatform("org.jetbrains.kotlin:kotlin-bom:$testKotlinBomVersion"))
 
   testImplementation(libs.junit)
   // TODO:
@@ -122,7 +122,8 @@ intellijPlatform {
 tasks {
   test {
     systemProperty("biome.test.expected.build", minimumIdeBuild)
-    systemProperty("biome.test.expected.kotlin", testPlatformKotlinVersion)
+    // The minimum IDE loads its bundled Kotlin runtime. The BOM only constrains test dependencies.
+    systemProperty("biome.test.expected.kotlin", libs.versions.kotlin.get())
   }
   wrapper {
     gradleVersion = providers.gradleProperty("gradleVersion").get()
