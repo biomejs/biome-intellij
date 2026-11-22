@@ -9,10 +9,10 @@ import com.intellij.lang.javascript.modules.TestNpmPackage
 import com.intellij.openapi.command.WriteCommandAction
 
 @TestNpmPackage("@biomejs/biome@2.5.15")
-class BiomeMinimumConfigStartupTest : BiomeConfigStartupTestCase()
+class Biome2515ConfigStartupTest : BiomeConfigStartupTestCase()
 
 @TestNpmPackage("@biomejs/biome@2.6.7")
-class BiomeCurrentConfigStartupTest : BiomeConfigStartupTestCase()
+class Biome267ConfigStartupTest : BiomeConfigStartupTestCase()
 
 abstract class BiomeConfigStartupTestCase : BiomeLspFixtureTestCase() {
     fun testStartupFormatsWithTheNestedWorkspaceConfiguration() {

@@ -8,6 +8,7 @@ import com.intellij.execution.wsl.getWslPathSafe
 import com.intellij.openapi.vfs.VirtualFile
 import java.io.File
 import java.nio.charset.Charset
+import java.nio.file.Path
 import kotlin.io.path.Path
 
 class GeneralProcessCommandBuilder : ProcessCommandBuilder {
@@ -44,7 +45,7 @@ class GeneralProcessCommandBuilder : ProcessCommandBuilder {
         return this
     }
 
-    override fun build(): BiomeTargetRun {
+    override fun build(v1ConfigDirectory: Path?): BiomeTargetRun {
         val exec = executable ?: throw ExecutionException(BiomeBundle.message("biome.language.server.not.found"))
 
         command.withExePath(exec)
@@ -54,6 +55,9 @@ class GeneralProcessCommandBuilder : ProcessCommandBuilder {
 
         // patch the command line to be run on WSL 2 instead of the host
         val wslDistribution = WslPath.getDistributionByWindowsUncPath(exec)
+        v1ConfigDirectory?.let { directory ->
+            command.withEnvironment(BIOME_CONFIG_PATH, wslDistribution?.getWslPathSafe(directory) ?: directory.toString())
+        }
         if (wslDistribution != null) {
             command.withExePath(wslDistribution.getWslPathSafe(Path(exec)))
 

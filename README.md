@@ -34,8 +34,6 @@ To install the Biome IntelliJ plugin, head over to the [official plugin page](ht
 
 ## Getting Started
 
-Requires Biome 2.5.15 or later.
-
 ### Biome Resolution
 
 The plugin tries to use Biome from your project’s local dependencies (`node_modules/.bin/biome`). We recommend adding Biome as a project dependency to ensure that NPM scripts and the extension use the same Biome version.

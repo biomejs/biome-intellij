@@ -29,6 +29,9 @@ import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.Diagnostic
 import java.io.IOException
 import java.net.URI
+import java.nio.file.Files
+import java.nio.file.InvalidPathException
+import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 
@@ -75,7 +78,7 @@ private class BiomeLspServerDescriptor(
     private val targetRun: BiomeTargetRun = BiomeTargetRunBuilder(project)
         .getBuilder(executable, root.path)
         .addParameters(listOf(ProcessCommandParameter.Value("lsp-proxy")))
-        .build()
+        .build(v1ConfigDirectory(root, configPath))
 
     override fun isSupportedFile(file: VirtualFile): Boolean {
         return BiomeSettings.getInstance(project).fileSupported(file)
@@ -184,6 +187,17 @@ private class BiomeLspServerDescriptor(
             configurationPath = configPath?.takeIf { it.isNotBlank() }
         }
     }
+}
+
+// Biome 1 reads this directory at daemon startup. Biome 2 requests the original path over LSP.
+private fun v1ConfigDirectory(root: VirtualFile, configuredPath: String?): Path? {
+    if (configuredPath.isNullOrBlank()) return null
+    val path = try {
+        root.toNioPath().resolve(configuredPath)
+    } catch (_: InvalidPathException) {
+        return null
+    }
+    return if (Files.isRegularFile(path)) path.parent else path
 }
 
 // Unmapped files retain the platform's native, Windows, UNC, and remote URI handling.
