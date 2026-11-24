@@ -8,6 +8,7 @@ import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreter
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import java.nio.charset.Charset
+import java.nio.file.Path
 
 class NodeProcessCommandBuilder(
     project: Project,
@@ -52,9 +53,12 @@ class NodeProcessCommandBuilder(
         return this
     }
 
-    override fun build(): BiomeTargetRun {
+    override fun build(v1ConfigDirectory: Path?): BiomeTargetRun {
         val exec = executable ?: throw ExecutionException(BiomeBundle.message("biome.language.server.not.found"))
 
+        v1ConfigDirectory?.let { directory ->
+            builder.addEnvironmentVariable(BIOME_CONFIG_PATH, target.convertLocalPathToTargetPath(directory.toString()))
+        }
         workingDir?.let { builder.setWorkingDirectory(target.path(it)) }
         builder.addParameter(target.path(exec))
         parameters.forEach { builder.addParameter(it) }

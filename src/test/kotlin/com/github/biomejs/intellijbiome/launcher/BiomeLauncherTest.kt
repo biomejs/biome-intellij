@@ -4,9 +4,11 @@ import com.github.biomejs.intellijbiome.BiomeTargetRun
 import com.github.biomejs.intellijbiome.BiomeTargetRunBuilder
 import com.github.biomejs.intellijbiome.GeneralProcessCommandBuilder
 import com.github.biomejs.intellijbiome.ProcessCommandParameter
-import com.github.biomejs.intellijbiome.extensions.runProcessFuture
 import com.github.biomejs.intellijbiome.settings.BiomeSettings
 import com.github.biomejs.intellijbiome.settings.ConfigurationMode
+import com.intellij.execution.process.CapturingProcessAdapter
+import com.intellij.execution.process.ProcessEvent
+import com.intellij.execution.process.ProcessOutput
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterManager
 import com.intellij.javascript.nodejs.interpreter.NodeJsInterpreterRef
 import com.intellij.javascript.nodejs.interpreter.local.NodeJsLocalInterpreter
@@ -20,6 +22,7 @@ import com.intellij.testFramework.fixtures.ModuleFixture
 import com.intellij.util.EnvironmentUtil
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
 class BiomeLauncherTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<ModuleFixture>>() {
@@ -305,8 +308,16 @@ class BiomeLauncherTest : CodeInsightFixtureTestCase<ModuleFixtureBuilder<Module
     private fun output(run: BiomeTargetRun): String {
         val handler = run.startProcess()
         try {
-            val result = runProcessFuture(handler).get(10, TimeUnit.SECONDS).processOutput
-            assertEquals(result.stderr, 0, handler.exitCode)
+            val completion = CompletableFuture<ProcessOutput>()
+            handler.addProcessListener(object : CapturingProcessAdapter() {
+                override fun processTerminated(event: ProcessEvent) {
+                    super.processTerminated(event)
+                    completion.complete(output)
+                }
+            })
+            handler.startNotify()
+            val result = completion.get(10, TimeUnit.SECONDS)
+            assertEquals(result.stderr, 0, result.exitCode)
             return result.stdout.trimEnd('\r', '\n')
         } finally {
             if (handler.process.isAlive) handler.destroyProcess()

@@ -33,6 +33,7 @@ To install the Biome IntelliJ plugin, head over to the [official plugin page](ht
 3. On the Plugins page, click the *Settings* button and then click *Install Plugin from Disk…*.
 
 ## Getting Started
+
 ### Biome Resolution
 
 The plugin tries to use Biome from your project’s local dependencies (`node_modules/.bin/biome`). We recommend adding Biome as a project dependency to ensure that NPM scripts and the extension use the same Biome version.
@@ -50,7 +51,7 @@ There are several reasons to behave like this:
 
 #### `Biome CLI Path`
 
-This setting overrides the Biome binary used by the plugin.
+This setting overrides the Biome binary used by the plugin. A relative path such as `./tools/biome` starts at the IDE project directory. Biome runs with the selected workspace as its working directory.
 
 #### Enabling Code Formatting
 
